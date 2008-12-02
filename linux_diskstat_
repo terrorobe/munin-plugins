@@ -1,5 +1,54 @@
 #!/usr/bin/perl -w
 
-# (c) 2008, Michael Renner
+# (c) 2008, Michael Renner <michael.renner@amd.co.at>
 
 use strict;
+
+
+use Munin::Plugin;
+use Carp;
+use Data::Dumper;
+
+
+my %cur_diskstat = fetch_device_counters('sdb');
+
+
+my ($oldtime, %prev_diskstat) = restore_state();
+
+print Dumper \%prev_diskstat;
+
+save_state(time(), %cur_diskstat);
+
+
+sub fetch_device_counters {
+
+	my ($device) = @_;
+
+	open STAT, '< /proc/diskstats' or croak "Failed to open '/proc/diskstats': $!";
+
+	for my $line (<STAT>) {
+		# Strip trailing newline and leading whitespace
+		chomp $line;
+		$line =~ s/^\s+//;
+
+		my @elems = split /\s+/, $line;
+
+		# We explicitly don't support old-style diskstats
+		if (@elems != 14) {
+			croak "Line $line doesn't have 14 fields as expected, aborting";
+		}
+
+		my %devstat;
+
+		# Hash-Slicing for fun and profit
+		@devstat{qw(major minor devname
+				rd_ios rd_merges rd_sectors rd_ticks
+				wr_ios wr_merges wr_sectors wr_ticks
+				ios_in_prog tot_ticks rq_ticks)} = @elems;
+
+		if ($device eq $devstat{'devname'}) {
+			return %devstat;
+		}
+	}
+	return undef;
+}
