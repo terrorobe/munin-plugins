@@ -16,7 +16,6 @@ my %cur_diskstat = fetch_device_counters('sdb');
 my ($prev_time, %prev_diskstat) = restore_state();
 
 calculate_values($prev_time, \%prev_diskstat, \%cur_diskstat);
-print Dumper \%prev_diskstat;
 
 save_state(time(), %cur_diskstat);
 
@@ -30,18 +29,39 @@ sub calculate_values {
 
 	my $read_ios = $cur_stats->{'rd_ios'} - $prev_stats->{'rd_ios'};
 	my $write_ios = $cur_stats->{'wr_ios'} - $prev_stats->{'wr_ios'};
+	my $total_ios = $read_ios + $write_ios;
+
+	my $rd_ticks = $cur_stats->{'rd_ticks'} - $prev_stats->{'rd_ticks'};
+	my $wr_ticks = $cur_stats->{'wr_ticks'} - $prev_stats->{'wr_ticks'};
+
+	my $rd_sectors = $cur_stats->{'rd_sectors'} - $prev_stats->{'rd_sectors'};
+	my $wr_sectors = $cur_stats->{'wr_sectors'} - $prev_stats->{'wr_sectors'};
+
+	my $tot_ticks = $cur_stats->{'tot_ticks'} - $prev_stats->{'tot_ticks'};
 
 	my $read_io_per_sec = $read_ios / $interval;
 	my $write_io_per_sec = $write_ios / $interval;
 
-	my $read_kb_per_sec = ($cur_stats->{'rd_sectors'} - $prev_stats->{'rd_sectors'}) / $interval / $sectors_per_kb;
-	my $write_kb_per_sec = ($cur_stats->{'wr_sectors'} - $prev_stats->{'wr_sectors'}) / $interval / $sectors_per_kb;
+	my $read_kb_per_sec = $rd_sectors / $interval / $sectors_per_kb;
+	my $write_kb_per_sec = $wr_sectors / $interval / $sectors_per_kb;
 
 
-	my $total_ios = $read_ios + $write_ios;
-	my $average_wait = $total_ios ? (($cur_stats->{'rd_ticks'} - $prev_stats->{'rd_ticks'}) + ($cur_stats->{'wr_ticks'} - $prev_stats->{'wr_ticks'})) / $total_ios : 0;
+	my $ios_per_sec = $total_ios / $interval;
 
-	print "Interval: $interval. rdio: $read_io_per_sec, rdkb: $read_kb_per_sec, wrio: $write_io_per_sec, wrkb: $write_kb_per_sec, await: $average_wait\n";
+	# Utilization - or "how busy is the device"?
+	# If the time spent for I/O was close to 1000msec for a given time range, the device is nearly 100% saturated.
+	my $utilization = $tot_ticks / $interval;
+
+	# Servicetime == average time an I/O takes.
+	my $servicetime = $ios_per_sec ? $utilization / $ios_per_sec : 0;
+
+	# Average wait time for an I/O 
+	my $average_wait = $total_ios ? ($rd_ticks + $wr_ticks) / $total_ios : 0;
+
+	my $average_rq_size = $total_ios ? ($rd_sectors + $wr_sectors) / $total_ios : 0;
+
+	print "Interval: $interval. rdio: $read_io_per_sec, rdkb: $read_kb_per_sec, wrio: $write_io_per_sec, wrkb: $write_kb_per_sec\n";
+	print "util: $utilization, svct: $servicetime, await: $average_wait, avrqsz: $average_rq_size\n";
 
 }
 
