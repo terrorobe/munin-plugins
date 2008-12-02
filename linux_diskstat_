@@ -13,12 +13,37 @@ use Data::Dumper;
 my %cur_diskstat = fetch_device_counters('sdb');
 
 
-my ($oldtime, %prev_diskstat) = restore_state();
+my ($prev_time, %prev_diskstat) = restore_state();
 
+calculate_values($prev_time, \%prev_diskstat, \%cur_diskstat);
 print Dumper \%prev_diskstat;
 
 save_state(time(), %cur_diskstat);
 
+
+sub calculate_values {
+	my ($prev_time, $prev_stats, $cur_stats) = @_;
+
+	my $sectors_per_kb = 2;
+
+	my $interval = time() - $prev_time;
+
+	my $read_ios = $cur_stats->{'rd_ios'} - $prev_stats->{'rd_ios'};
+	my $write_ios = $cur_stats->{'wr_ios'} - $prev_stats->{'wr_ios'};
+
+	my $read_io_per_sec = $read_ios / $interval;
+	my $write_io_per_sec = $write_ios / $interval;
+
+	my $read_kb_per_sec = ($cur_stats->{'rd_sectors'} - $prev_stats->{'rd_sectors'}) / $interval / $sectors_per_kb;
+	my $write_kb_per_sec = ($cur_stats->{'wr_sectors'} - $prev_stats->{'wr_sectors'}) / $interval / $sectors_per_kb;
+
+
+	my $total_ios = $read_ios + $write_ios;
+	my $average_wait = $total_ios ? (($cur_stats->{'rd_ticks'} - $prev_stats->{'rd_ticks'}) + ($cur_stats->{'wr_ticks'} - $prev_stats->{'wr_ticks'})) / $total_ios : 0;
+
+	print "Interval: $interval. rdio: $read_io_per_sec, rdkb: $read_kb_per_sec, wrio: $write_io_per_sec, wrkb: $write_kb_per_sec, await: $average_wait\n";
+
+}
 
 sub fetch_device_counters {
 
