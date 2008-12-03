@@ -113,12 +113,18 @@ graph_category disk
 util.label Device utilization (in percent)
 util.type GAUGE
 util.info Utilization of the device. If the time spent for I/O is close to 1000msec for a given second, the device is nearly 100% saturated.
-svctm.label Average IO time (ms)
+svctm.label Average device IO time (ms)
 svctm.type GAUGE
 svctm.info Average time an I/O takes on the block device
 avgwait.label Average IO Wait time (ms)
 avgwait.type GAUGE
 avgwait.info Average wait time for an I/O from request start to finish (includes queue times et al)
+avgrdwait.label Average Read IO Wait time (ms)
+avgrdwait.type GAUGE
+avgrdwait.info Average wait time for a read I/O from request start to finish (includes queue times et al)
+avgwrwait.label Average Write IO Wait time (ms)
+avgwrwait.type GAUGE
+avgwrwait.info Average wait time for a write I/O from request start to finish (includes queue times et al)
 
 EOF
 
@@ -152,6 +158,10 @@ wrio.label Write IO/sec
 wrio.type GAUGE
 avgrqsz.label Average Request Size (KiB)
 avgrqsz.type GAUGE
+avgrdrqsz.label Average Read Request Size (KiB)
+avgrdrqsz.type GAUGE
+avgwrrqsz.label Average Write Request Size (KiB)
+avgwrrqsz.type GAUGE
 
 EOF
 
@@ -197,7 +207,6 @@ sub calculate_and_print_values {
 
 	my $read_ios = $cur_stats->{'rd_ios'} - $prev_stats->{'rd_ios'};
 	my $write_ios = $cur_stats->{'wr_ios'} - $prev_stats->{'wr_ios'};
-	my $total_ios = $read_ios + $write_ios;
 
 	my $rd_ticks = $cur_stats->{'rd_ticks'} - $prev_stats->{'rd_ticks'};
 	my $wr_ticks = $cur_stats->{'wr_ticks'} - $prev_stats->{'wr_ticks'};
@@ -207,6 +216,7 @@ sub calculate_and_print_values {
 
 	my $tot_ticks = $cur_stats->{'tot_ticks'} - $prev_stats->{'tot_ticks'};
 
+
 	my $read_io_per_sec = $read_ios / $interval;
 	my $write_io_per_sec = $write_ios / $interval;
 
@@ -214,19 +224,24 @@ sub calculate_and_print_values {
 	my $write_bytes_per_sec = $wr_sectors / $interval * $bytes_per_sector;
 
 
-	my $ios_per_sec = $total_ios / $interval;
+	my $total_ios = $read_ios + $write_ios;
+	my $total_ios_per_sec = $total_ios / $interval;
 
 	# Utilization - or "how busy is the device"?
 	# If the time spent for I/O was close to 1000msec for a given second, the device is nearly 100% saturated.
 	my $utilization = $tot_ticks / $interval;
 
 	# Average time an I/O takes on the block device
-	my $servicetime = $ios_per_sec ? $utilization / $ios_per_sec : 0;
+	my $servicetime = $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
 
 	# Average wait time for an I/O from start to finish (includes queue times et al)
 	my $average_wait = $total_ios ? ($rd_ticks + $wr_ticks) / $total_ios : 0;
+	my $average_rd_wait = $read_ios ? $rd_ticks / $read_ios : 0;
+	my $average_wr_wait = $write_ios ? $wr_ticks / $write_ios : 0;
 
 	my $average_rq_size_in_kb = $total_ios ? ($rd_sectors + $wr_sectors) * $bytes_per_sector / 1024 / $total_ios : 0;
+	my $average_rd_rq_size_in_kb = $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
+	my $average_wr_rq_size_in_kb = $write_ios ? $wr_sectors * $bytes_per_sector / 1024 / $write_ios : 0;
 
 	my $util_print = $utilization / 10;
 
@@ -237,6 +252,8 @@ sub calculate_and_print_values {
 util.value $util_print
 svctm.value $servicetime
 avgwait.value $average_wait
+avgrdwait.value $average_rd_wait
+avgwrwait.value $average_wr_wait
 
 EOF
 	}
@@ -256,6 +273,8 @@ EOF
 rdio.value $read_io_per_sec
 wrio.value $write_io_per_sec
 avgrqsz.value $average_rq_size_in_kb
+avgrdrqsz.value $average_rd_rq_size_in_kb
+avgwrrqsz.value $average_wr_rq_size_in_kb
 
 EOF
 
