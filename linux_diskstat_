@@ -4,8 +4,10 @@
 
 # TODO:
 # split read/write latency stats
-# Convert gauges to derive/counter where feasible
 # munindoc
+
+# Won't do:
+# Convert gauges to derive/counter where feasible -- I don't see a benefit in this
 
 # Acknowledgements:
 # The logic of this module is based on the iostat tool of the sysstat package
