@@ -12,7 +12,7 @@
 
 =head1 NAME
 
-linux_diskstats_ - Munin plugin to monitor various statistics provided
+linux_diskstats_ - Munin plugin to monitor various values provided
 via C</proc/diskstats>
 
 =head1 APPLICABLE SYSTEMS
@@ -25,17 +25,17 @@ None
 
 =head1 INTERPRETATION
 
-Among the more self-describing or well-known values like throughput-volume
+Among the more self-describing or well-known values like C<throughput>
 (Bytes per second) there are a few which might need further introduction.
 
 =head2 Device Utilization
 
-Linux provides a counter which increments in a millisecond-interval as long
+Linux provides a counter which increments in a millisecond-interval for as long
 as there are outstanding I/O requests. If this counter is close to 1000msec
 in a given 1 second timeframe the device is nearly 100% saturated. This plugin
 provides values averaged over a 5 minute time frame per default, so it can't
 catch short-lived saturations, but it'll give a nice trend for semi-uniform
-load patterns as they're expected in most server environments.
+load patterns as they're expected in most server or multi-user environments.
 
 =head2 Device IO Time
 
@@ -44,7 +44,7 @@ and divides it by the number of I/Os that happened in the given time frame,
 resulting in an average time per I/O on the block-device level.
 
 This value can give you a good comparison base amongst different controllers,
-storages and disks for similiar workloads.
+storage subsystems and disks for similiar workloads.
 
 =head2 Syscall Wait Time
 
