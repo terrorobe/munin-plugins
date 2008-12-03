@@ -3,7 +3,6 @@
 # (c) 2008, Michael Renner <michael.renner@amd.co.at>
 
 # TODO:
-# split read/write latency stats
 # munindoc
 
 # Won't do:
@@ -107,10 +106,9 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'config') {
 		print <<EOF;
 graph_title Disk latency for /dev/$device
 graph_args --base 1000
-graph_vlabel ms
 graph_category disk
 
-util.label Device utilization (in percent)
+util.label Device utilization (percent)
 util.type GAUGE
 util.info Utilization of the device. If the time spent for I/O is close to 1000msec for a given second, the device is nearly 100% saturated.
 svctm.label Average device IO time (ms)
