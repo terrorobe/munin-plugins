@@ -1,24 +1,115 @@
 #!/usr/bin/perl -w
 
-# (c) 2008, Michael Renner <michael.renner@amd.co.at>
-
-# TODO:
-# munindoc
-
-# Won't do:
-# Convert gauges to derive/counter where feasible -- I don't see a benefit in this
-
-# Acknowledgements:
-# The logic of this module is based on the iostat tool of the sysstat package
-# written and maintained by Sebastien Godard
-
-
-# See Documentation/iostats.txt in your linux source tree for further
-# information about the statistics fields.
-
 # Munin markers:
 #%# family=auto
 #%# capabilities=autoconf suggest
+
+# (c) 2008, Michael Renner <michael.renner@amd.co.at>
+
+# TODO:
+# drop combined stats where split out read/write exists if it's nicer that way.
+# test autoconf/suggest
+
+=head1 NAME
+
+linux_diskstats_ - Munin plugin to monitor various statistics provided
+via C</proc/diskstats>
+
+=head1 APPLICABLE SYSTEMS
+
+Linux 2.6 systems with extended block device statistics enabled.
+
+=head1 CONFIGURATION
+
+None
+
+=head1 INTERPRETATION
+
+Among the more self-describing or well-known values like throughput-volume
+(Bytes per second) there are a few which might need further introduction.
+
+=head2 Device Utilization
+
+Linux provides a counter which increments in a millisecond-interval as long
+as there are outstanding I/O requests. If this counter is close to 1000msec
+in a given 1 second timeframe the device is nearly 100% saturated. This plugin
+provides values averaged over a 5 minute time frame per default, so it can't
+catch short-lived saturations, but it'll give a nice trend for semi-uniform
+load patterns as they're expected in most server environments.
+
+=head2 Device IO Time
+
+The C<Device IO Time> takes the counter described under C<Device Utilization>
+and divides it by the number of I/Os that happened in the given time frame,
+resulting in an average time per I/O on the block-device level.
+
+This value can give you a good comparison base amongst different controllers,
+storages and disks for similiar workloads.
+
+=head2 Syscall Wait Time
+
+These values describe the average time it takes between an application issuing
+a syscall resulting in a hit to a blockdevice to the syscall returning to the
+application.
+
+The values are bound to be higher (at least for read requests) than the time
+it takes the device itself to fulfill the requests, since calling overhead,
+queuing times and probably a dozen other things are included in those times.
+
+These are the values to watch out for when an user complains that C<the disks
+are too slow!>.
+
+=head3 What causes a block device hit?
+
+A non-exhaustive list:
+
+Reads from files when the given range is not in the page cache or the O_DIRECT
+flag is set.
+
+Writes to files if O_DIRECT or O_SYNC is set or sys.vm.dirty_(background_)ratio
+is exceeded.
+
+Filesystem metadata operations (stat(2), getdents(2), file creation,
+modification of any of the values returned by stat(2), etc.)
+
+The pdflush daemon writing out dirtied pages
+
+(f)sync
+
+Swapping
+
+raw device I/O (mkfs, dd, etc.)
+
+
+
+=head1 ACKNOWLEDGEMENTS
+
+The core logic of this script is based on the B<iostat> tool of the B<sysstat>
+package written and maintained by Sebastien Godard.
+
+=head1 SEE ALSO
+
+See C<Documentation/iostats.txt> in your Linux source tree for further information
+about the statistics fields.
+
+http://www.westnet.com/~gsmith/content/linux-pdflush.htm has a nice writeup
+about the pdflush daemon.
+
+=head1 VERSION
+
+$Id$
+
+=head1 AUTHOR
+
+Michael Renner <michael.renner@amd.co.at>
+
+=head1 LICENSE
+
+GPLv2
+
+
+=cut
+
 
 use strict;
 
@@ -167,7 +258,6 @@ EOF
 	else {
 		croak "Unknown mode $mode\n";
 	}
-
 	exit 0;
 }
 
