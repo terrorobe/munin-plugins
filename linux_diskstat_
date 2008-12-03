@@ -4,9 +4,9 @@
 
 # TODO:
 # Autoconfig + hints
-# split into multiple graphs (latency, throughputi, iops)
 # split read/write latency stats
 # .info descriptions
+# return values as their base units and let munin do the scaling
 
 
 use strict;
@@ -18,7 +18,7 @@ use Data::Dumper;
 use File::Basename;
 
 my $basename = basename($0);
-my ($device) = $basename =~ m/linux_diskstat_(\w+)/;
+my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_(\w+)/;
 
 if (not defined $device) {
 	croak "Didn't get a device name. Aborting\n";
@@ -27,30 +27,59 @@ if (not defined $device) {
 
 if ( defined $ARGV[0] && $ARGV[0] eq 'config') {
 
-	print <<EOF;
-graph_title Linux diskstats for /dev/$device
+	if ($mode eq 'latency') {
+
+		print <<EOF;
+graph_title Disk latency for /dev/$device
+graph_args --base 1000
+graph_vlabel ms
+graph_category disk
+
+util.label Device utilization (in percent)
+util.type GAUGE
+svctm.label Average IO time (ms)
+svctm.type GAUGE
+avgwait.label Average IO Wait time (ms)
+avgwait.type GAUGE
+
+EOF
+
+	}
+	elsif ($mode eq 'throughput') {
+
+		print <<EOF;
+graph_title Disk throughput for /dev/$device
 graph_args --base 1024
-graph_vlabel quux/\${graph_period}
+graph_vlabel KiB/sec
+graph_category disk
+
+rdkb.label Read KiB/sec
+rdkb.type GAUGE
+wrkb.label Read KiB/sec
+wrkb.type GAUGE
+
+EOF
+	}
+	elsif ($mode eq 'iops') {
+
+		print <<EOF;
+graph_title IOs for /dev/$device
+graph_args --base 1000
 graph_category disk
 
 rdio.label Read IO/sec
 rdio.type GAUGE
 wrio.label Write IO/sec
 wrio.type GAUGE
-util.label Device utilization (in percent)
-util.type GAUGE
-svctm.label Average IO time
-svctm.type GAUGE
-avgwait.label Average IO Wait time
-avgwait.type GAUGE
 avgrqsz.label Average Request Size
 avgrqsz.type GAUGE
 
 EOF
-#rdkb.label Read KiB/sec
-#rdkb.type GAUGE
-#wrkb.label Read KiB/sec
-#wrkb.type GAUGE
+
+	}
+	else {
+		croak "Unknown mode $mode\n";
+	}
 
 	exit 0;
 }
@@ -113,22 +142,42 @@ sub calculate_values {
 
 	my $average_rq_size = $total_ios ? ($rd_sectors + $wr_sectors) / $total_ios : 0;
 
-#	print "Interval: $interval. rdio: $read_io_per_sec, rdkb: $read_kb_per_sec, wrio: $write_io_per_sec, wrkb: $write_kb_per_sec\n";
-#	print "util: $utilization, svct: $servicetime, await: $average_wait, avrqsz: $average_rq_size\n";
-
 	my $util_print = $utilization / 10;
-	print <<EOF;
-rdio.value $read_io_per_sec
-wrio.value $write_io_per_sec
+
+	if ($mode eq 'latency') {
+		print <<EOF;
+
 util.value $util_print
 svctm.value $servicetime
 avgwait.value $average_wait
+
+EOF
+	}
+	elsif ($mode eq 'throughput') {
+
+		print <<EOF;
+
+rdkb.value $read_kb_per_sec
+wrkb.value $write_kb_per_sec
+
+EOF
+	}
+	elsif ($mode eq 'iops') {
+
+		print <<EOF;
+
+rdio.value $read_io_per_sec
+wrio.value $write_io_per_sec
 avgrqsz.value $average_rq_size
 
 EOF
 
-#rdkb.value $read_kb_per_sec
-#wrkb.value $write_kb_per_sec
+	}
+	else {
+		croak "Unknown mode $mode\n";
+	}
+
+
 
 }
 
