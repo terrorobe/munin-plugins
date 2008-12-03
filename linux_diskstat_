@@ -8,6 +8,8 @@
 
 # TODO:
 # drop combined stats where split out read/write exists if it's nicer that way.
+# fix cciss files
+# Munin::Plugin isn't available on etch
 
 =head1 NAME
 
@@ -18,9 +20,6 @@ via C</proc/diskstats>
 
 Linux 2.6 systems with extended block device statistics enabled.
 
-=head1 CONFIGURATION
-
-None
 
 =head1 INTERPRETATION
 
@@ -100,10 +99,6 @@ about the statistics fields.
 L<http://www.westnet.com/~gsmith/content/linux-pdflush.htm> has a nice writeup
 about the pdflush daemon.
 
-=head1 VERSION
-
-$Id$
-
 =head1 AUTHOR
 
 Michael Renner <michael.renner@amd.co.at>
@@ -120,9 +115,8 @@ use strict;
 
 
 use Munin::Plugin;
-use Carp;
-use Data::Dumper;
 use File::Basename;
+use Carp;
 
 my $basename = basename($0);
 my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_(\w+)/;
