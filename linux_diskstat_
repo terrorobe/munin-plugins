@@ -5,6 +5,8 @@
 # TODO:
 # Autoconfig
 # split read/write latency stats
+# Convert gauges to derive/counter where feasible
+# munindoc
 
 # Acknowledgements:
 # The logic of this module is based on the iostat tool of the sysstat package
@@ -91,6 +93,18 @@ EOF
 	}
 
 	exit 0;
+}
+
+if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf') {
+	if (-f '/proc/diskstats') {
+
+		if (read_diskstats()) {
+			print "yes\n";
+			exit 0;
+		}
+	}
+	print "no\n";
+	exit 1;
 }
 
 
@@ -189,11 +203,11 @@ EOF
 
 }
 
-sub fetch_device_counters {
-
-	my ($device) = @_;
+sub read_diskstats {
 
 	open STAT, '< /proc/diskstats' or croak "Failed to open '/proc/diskstats': $!";
+
+	my @lines;
 
 	for my $line (<STAT>) {
 		# Strip trailing newline and leading whitespace
@@ -204,8 +218,22 @@ sub fetch_device_counters {
 
 		# We explicitly don't support old-style diskstats
 		if (@elems != 14) {
-			croak "Line $line doesn't have 14 fields as expected, aborting";
+			return undef;
 		}
+		push @lines, \@elems;
+	}
+
+	close STAT or croak "Failed to close '/proc/diskstats': $!";
+	return @lines;
+}
+
+sub fetch_device_counters {
+
+	my ($device) = @_;
+
+	my @stats = read_diskstats();
+
+	for my $entry (@stats) {
 
 		my %devstat;
 
@@ -213,7 +241,7 @@ sub fetch_device_counters {
 		@devstat{qw(major minor devname
 				rd_ios rd_merges rd_sectors rd_ticks
 				wr_ios wr_merges wr_sectors wr_ticks
-				ios_in_prog tot_ticks rq_ticks)} = @elems;
+				ios_in_prog tot_ticks rq_ticks)} = @{$entry};
 
 		if ($device eq $devstat{'devname'}) {
 			return %devstat;
