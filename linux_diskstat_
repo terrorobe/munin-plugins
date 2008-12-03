@@ -9,6 +9,7 @@
 # TODO:
 # drop combined stats where split out read/write exists if it's nicer that way.
 # report graph_scale no should imply graph_args --rigid
+# rigid is rigid in both ways. curse you!
 
 =head1 NAME
 
