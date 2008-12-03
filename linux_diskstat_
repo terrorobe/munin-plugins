@@ -5,7 +5,6 @@
 # TODO:
 # Autoconfig
 # split read/write latency stats
-# .info descriptions
 
 # Acknowledgements:
 # The logic of this module is based on the iostat tool of the sysstat package
@@ -43,10 +42,13 @@ graph_category disk
 
 util.label Device utilization (in percent)
 util.type GAUGE
+util.info Utilization of the device. If the time spent for I/O was close to 1000msec for a given second, the device is nearly 100% saturated.
 svctm.label Average IO time (ms)
 svctm.type GAUGE
+svctm.info Average time an I/O takes on the block device
 avgwait.label Average IO Wait time (ms)
 avgwait.type GAUGE
+avgwait.info Average wait time for an I/O from request start to finish (includes queue times et al)
 
 EOF
 
