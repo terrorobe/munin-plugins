@@ -27,6 +27,56 @@ use File::Basename;
 my $basename = basename($0);
 my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_(\w+)/;
 
+
+
+if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf') {
+	if (-f '/proc/diskstats') {
+
+		if (read_diskstats()) {
+			print "yes\n";
+			exit 0;
+		}
+	}
+	print "no\n";
+	exit 1;
+}
+
+if ( defined $ARGV[0] && $ARGV[0] eq 'suggest') {
+
+	my %diskstats = parse_diskstats();
+
+	my %suggested_devices;
+
+DEVICE:
+	for my $devname (sort keys %diskstats) {
+
+		# Skip devices without traffic
+		next if ($diskstats{$devname}->{'rd_ios'} == 0 && $diskstats{$devname}->{'wr_ios'} == 0);
+
+		# Skip device-mapper devices
+		next if ($devname =~ /^dm-\d+/);
+
+		for my $existing_device (keys %suggested_devices) {
+
+			# Filter out devices (partitions) which are matched by existing ones
+			# e.g. sda1 -> sda, c0d0p1 -> c0d0
+			next DEVICE if ($devname =~ m/$existing_device/);
+
+		}
+		$suggested_devices{$devname} = 1;
+	}
+
+	for my $mode (qw(latency iops throughput)) {
+		for my $device (sort keys %suggested_devices) {
+
+			print "${mode}_$device\n";
+		}
+	}
+
+	exit 0;
+}
+
+
 if (not defined $device) {
 	croak "Didn't get a device name. Aborting\n";
 }
@@ -95,17 +145,6 @@ EOF
 	exit 0;
 }
 
-if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf') {
-	if (-f '/proc/diskstats') {
-
-		if (read_diskstats()) {
-			print "yes\n";
-			exit 0;
-		}
-	}
-	print "no\n";
-	exit 1;
-}
 
 
 my %cur_diskstat = fetch_device_counters($device);
@@ -227,11 +266,11 @@ sub read_diskstats {
 	return @lines;
 }
 
-sub fetch_device_counters {
-
-	my ($device) = @_;
+sub parse_diskstats {
 
 	my @stats = read_diskstats();
+	
+	my %diskstats;
 
 	for my $entry (@stats) {
 
@@ -243,8 +282,22 @@ sub fetch_device_counters {
 				wr_ios wr_merges wr_sectors wr_ticks
 				ios_in_prog tot_ticks rq_ticks)} = @{$entry};
 
-		if ($device eq $devstat{'devname'}) {
-			return %devstat;
+		$diskstats{$devstat{'devname'}} = \%devstat;
+	}
+
+	return %diskstats;
+}
+
+sub fetch_device_counters {
+
+	my ($want_device) = @_;
+
+	my %diskstats = parse_diskstats();
+
+	for my $devname (keys %diskstats) {
+
+		if ($want_device eq $devname) {
+			return %{$diskstats{$devname}};
 		}
 	}
 	return undef;
