@@ -468,9 +468,6 @@ sub save_state {
 
 sub restore_state {
 
-        my $storable_filename = basename($0);
-        $storable_filename = "/tmp/munin-state-$storable_filename";
-
         if (-f $storable_filename) {
                 my $state = retrieve($storable_filename);
                 return @{$state};
