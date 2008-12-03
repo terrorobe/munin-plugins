@@ -4,7 +4,7 @@
 
 # TODO:
 # Autoconfig + hints
-# multiple scales for same graph?
+# split into multiple graphs (latency, throughputi, iops)
 # split read/write latency stats
 # .info descriptions
 
@@ -19,6 +19,10 @@ use File::Basename;
 
 my $basename = basename($0);
 my ($device) = $basename =~ m/linux_diskstat_(\w+)/;
+
+if (not defined $device) {
+	croak "Didn't get a device name. Aborting\n";
+}
 
 
 if ( defined $ARGV[0] && $ARGV[0] eq 'config') {
@@ -51,10 +55,6 @@ EOF
 	exit 0;
 }
 
-
-if (not defined $device) {
-	croak "Didn't get a device name. Aborting\n";
-}
 
 my %cur_diskstat = fetch_device_counters($device);
 
