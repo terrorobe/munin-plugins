@@ -6,6 +6,7 @@
 # Autoconfig + hints
 # multiple scales for same graph?
 # split read/write latency stats
+# .info descriptions
 
 
 use strict;
@@ -32,10 +33,6 @@ rdio.label Read IO/sec
 rdio.type GAUGE
 wrio.label Write IO/sec
 wrio.type GAUGE
-rdkb.label Read KiB/sec
-rdkb.type GAUGE
-wrkb.label Read KiB/sec
-wrkb.type GAUGE
 util.label Device utilization (in percent)
 util.type GAUGE
 svctm.label Average IO time
@@ -46,6 +43,10 @@ avgrqsz.label Average Request Size
 avgrqsz.type GAUGE
 
 EOF
+#rdkb.label Read KiB/sec
+#rdkb.type GAUGE
+#wrkb.label Read KiB/sec
+#wrkb.type GAUGE
 
 	exit 0;
 }
@@ -119,14 +120,15 @@ sub calculate_values {
 	print <<EOF;
 rdio.value $read_io_per_sec
 wrio.value $write_io_per_sec
-rdkb.value $read_kb_per_sec
-wrkb.value $write_kb_per_sec
 util.value $util_print
 svctm.value $servicetime
 avgwait.value $average_wait
 avgrqsz.value $average_rq_size
 
 EOF
+
+#rdkb.value $read_kb_per_sec
+#wrkb.value $write_kb_per_sec
 
 }
 
