@@ -3,7 +3,7 @@
 # (c) 2008, Michael Renner <michael.renner@amd.co.at>
 
 # TODO:
-# Autoconfig + hints
+# Autoconfig
 # split read/write latency stats
 # .info descriptions
 # return values as their base units and let munin do the scaling
@@ -63,7 +63,7 @@ EOF
 	elsif ($mode eq 'iops') {
 
 		print <<EOF;
-graph_title IOs for /dev/$device
+graph_title Disk IOs for /dev/$device
 graph_args --base 1000
 graph_category disk
 
