@@ -8,7 +8,6 @@
 
 # TODO:
 # drop combined stats where split out read/write exists if it's nicer that way.
-# fix cciss files
 # Munin::Plugin isn't available on etch
 
 =head1 NAME
@@ -119,8 +118,8 @@ use File::Basename;
 use Carp;
 
 my $basename = basename($0);
-my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_(\w+)/;
-
+my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_([\w-]+)$/;
+$device = translate_device_name($device);
 
 
 ############
@@ -157,7 +156,7 @@ DEVICE:
 		next if ($diskstats{$devname}->{'rd_ios'} == 0 && $diskstats{$devname}->{'wr_ios'} == 0);
 
 		# Skip device-mapper devices
-		next if ($devname =~ /^dm-\d+/);
+		next if ($devname =~ /^dm-\d+$/);
 
 		for my $existing_device (keys %suggested_devices) {
 
@@ -172,6 +171,7 @@ DEVICE:
 	for my $mode (qw(latency iops throughput)) {
 		for my $device (sort keys %suggested_devices) {
 
+			$device = translate_device_name($device);
 			print "${mode}_$device\n";
 		}
 	}
@@ -431,4 +431,12 @@ sub fetch_device_counters {
 		}
 	}
 	return undef;
+}
+
+sub translate_device_name {
+
+	my ($device) = @_;
+
+	$device =~ tr#-/#/-#;
+	return $device;
 }
