@@ -29,6 +29,10 @@ my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_(\w+)/;
 
 
 
+############
+# autoconf #
+############
+
 if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf') {
 	if (-f '/proc/diskstats') {
 
@@ -40,6 +44,11 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf') {
 	print "no\n";
 	exit 1;
 }
+
+
+###########
+# suggest #
+###########
 
 if ( defined $ARGV[0] && $ARGV[0] eq 'suggest') {
 
@@ -81,6 +90,10 @@ if (not defined $device) {
 	croak "Didn't get a device name. Aborting\n";
 }
 
+
+##########
+# config #
+##########
 
 if ( defined $ARGV[0] && $ARGV[0] eq 'config') {
 
@@ -146,6 +159,10 @@ EOF
 }
 
 
+########
+# MAIN #
+########
+
 
 my %cur_diskstat = fetch_device_counters($device);
 
@@ -156,13 +173,15 @@ save_state(time(), %cur_diskstat);
 
 # Probably the first run for the given device, we need state to do our job,
 # so let's wait for the next run.
-if (not defined $prev_time or not %prev_diskstat) {
-	exit;
-}
+exit if (not defined $prev_time or not %prev_diskstat);
 
 calculate_and_print_values($prev_time, \%prev_diskstat, \%cur_diskstat);
 
 
+
+########
+# SUBS #
+########
 
 sub calculate_and_print_values {
 	my ($prev_time, $prev_stats, $cur_stats) = @_;
