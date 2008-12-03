@@ -50,13 +50,13 @@ EOF
 		print <<EOF;
 graph_title Disk throughput for /dev/$device
 graph_args --base 1024
-graph_vlabel KiB/sec
+graph_vlabel Bytes/\${graph_period}
 graph_category disk
 
-rdkb.label Read KiB/sec
-rdkb.type GAUGE
-wrkb.label Read KiB/sec
-wrkb.type GAUGE
+rdbytes.label Read Bytes
+rdbytes.type GAUGE
+wrbytes.label Write Bytes
+wrbytes.type GAUGE
 
 EOF
 	}
@@ -105,7 +105,7 @@ save_state(time(), %cur_diskstat);
 sub calculate_values {
 	my ($prev_time, $prev_stats, $cur_stats) = @_;
 
-	my $sectors_per_kb = 2;
+	my $bytes_per_sector = 512;
 
 	my $interval = time() - $prev_time;
 
@@ -124,8 +124,8 @@ sub calculate_values {
 	my $read_io_per_sec = $read_ios / $interval;
 	my $write_io_per_sec = $write_ios / $interval;
 
-	my $read_kb_per_sec = $rd_sectors / $interval / $sectors_per_kb;
-	my $write_kb_per_sec = $wr_sectors / $interval / $sectors_per_kb;
+	my $read_bytes_per_sec = $rd_sectors / $interval * $bytes_per_sector;
+	my $write_bytes_per_sec = $wr_sectors / $interval * $bytes_per_sector;
 
 
 	my $ios_per_sec = $total_ios / $interval;
@@ -157,8 +157,8 @@ EOF
 
 		print <<EOF;
 
-rdkb.value $read_kb_per_sec
-wrkb.value $write_kb_per_sec
+rdbytes.value $read_bytes_per_sec
+wrbytes.value $write_bytes_per_sec
 
 EOF
 	}
