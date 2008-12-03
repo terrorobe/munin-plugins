@@ -97,19 +97,19 @@ my %cur_diskstat = fetch_device_counters($device);
 
 my ($prev_time, %prev_diskstat) = restore_state();
 
+save_state(time(), %cur_diskstat);
+
 # Probably the first run for the given device, we need state to do our job,
 # so let's wait for the next run.
 if (not defined $prev_time or not %prev_diskstat) {
-	save_state(time(), %cur_diskstat);
 	exit;
 }
 
-calculate_values($prev_time, \%prev_diskstat, \%cur_diskstat);
-
-save_state(time(), %cur_diskstat);
+calculate_and_print_values($prev_time, \%prev_diskstat, \%cur_diskstat);
 
 
-sub calculate_values {
+
+sub calculate_and_print_values {
 	my ($prev_time, $prev_stats, $cur_stats) = @_;
 
 	my $bytes_per_sector = 512;
