@@ -8,6 +8,7 @@
 
 # TODO:
 # drop combined stats where split out read/write exists if it's nicer that way.
+# report graph_scale no should imply graph_args --rigid
 
 =head1 NAME
 
@@ -92,7 +93,7 @@ package written and maintained by Sebastien Godard.
 =head1 SEE ALSO
 
 See C<Documentation/iostats.txt> in your Linux source tree for further information
-about the statistics fields.
+about the C<numbers> involved in this module.
 
 L<http://www.westnet.com/~gsmith/content/linux-pdflush.htm> has a nice writeup
 about the pdflush daemon.
@@ -201,7 +202,8 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'config') {
 
 		print <<EOF;
 graph_title Disk latency for /dev/$device
-graph_args --base 1000
+graph_args --base 1000 --upper-limit 100 -l 0 --rigid
+graph_scale no
 graph_category disk
 
 util.label Device utilization (percent)
