@@ -383,7 +383,7 @@ EOF
 
 sub read_diskstats {
 
-	open STAT, '< /proc/diskstats' or croak "Failed to open '/proc/diskstats': $!";
+	open STAT, '< /proc/diskstats' or croak "Failed to open '/proc/diskstats': $!\n";
 
 	my @lines;
 
@@ -405,9 +405,40 @@ sub read_diskstats {
 	return @lines;
 }
 
+sub read_sysfs {
+
+	my ($want_device) = @_;
+
+	my $stats_file = "/sys/block/$want_device/stat";
+
+	open STAT, "< $stats_file" or croak "Failed to open '$stats_file': $!\n";
+
+	my @elems = split /\s+/, <STAT>;
+
+	croak "'$stats_file' doesn't contain exactly 11 values. Aborting" if (@elems != 11);
+
+	# Faking missing diskstats values
+	unshift @elems, ('', '', $want_device);
+
+	close STAT or croak "Failed to close '$stats_file': $!\n";
+
+	return \@elems;
+}
+
+
 sub parse_diskstats {
 
-	my @stats = read_diskstats();
+	my ($want_device) = @_;
+
+	my @stats;
+
+	if ($want_device && -e "/sys/block/$want_device/stat") {
+
+		@stats = read_sysfs($want_device);
+	}
+	else {
+		@stats = read_diskstats();
+	}
 	
 	my %diskstats;
 
@@ -431,7 +462,7 @@ sub fetch_device_counters {
 
 	my ($want_device) = @_;
 
-	my %diskstats = parse_diskstats();
+	my %diskstats = parse_diskstats($want_device);
 
 	for my $devname (keys %diskstats) {
 
