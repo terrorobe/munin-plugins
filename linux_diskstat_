@@ -413,7 +413,9 @@ sub read_sysfs {
 
 	open STAT, "< $stats_file" or croak "Failed to open '$stats_file': $!\n";
 
-	my @elems = split /\s+/, <STAT>;
+	my $line = <STAT>;
+	$line =~ s/^\s+//;
+	my @elems = split /\s+/, $line;
 
 	croak "'$stats_file' doesn't contain exactly 11 values. Aborting" if (@elems != 11);
 
