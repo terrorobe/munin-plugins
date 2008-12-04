@@ -409,7 +409,21 @@ sub read_sysfs {
 
 	my ($want_device) = @_;
 
-	my $stats_file = "/sys/block/$want_device/stat";
+	my @devices;
+
+	if (defined $want_device) {
+		@devices = $want_device;
+	}
+	else {
+		@devices = </sys/block/*/stat>;
+		@devices = map { m!/sys/block/([^/]+)/stat! } @devices;
+	}
+
+
+# HERE BE DRAGONS!
+
+	for my $cur_device (@devices) {
+	my $stats_file = "/sys/block/$cur_device/stat";
 
 	open STAT, "< $stats_file" or croak "Failed to open '$stats_file': $!\n";
 
@@ -421,6 +435,7 @@ sub read_sysfs {
 	unshift @elems, ('', '', $want_device);
 
 	close STAT or croak "Failed to close '$stats_file': $!\n";
+	}
 
 	return \@elems;
 }
