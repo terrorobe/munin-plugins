@@ -10,6 +10,8 @@
 # drop combined stats where split out read/write exists if it's nicer that way.
 # report graph_scale no should imply graph_args --rigid
 # rigid is rigid in both ways. curse you!
+# fix read_diskstats undef/exception handling
+# fix error reporting when unsupported diskstats values are detected
 
 =head1 NAME
 
@@ -396,7 +398,7 @@ sub read_diskstats {
 
 		# We explicitly don't support old-style diskstats
 		if (@elems != 14) {
-			return undef;
+			next;
 		}
 		push @lines, \@elems;
 	}
