@@ -6,9 +6,6 @@
 
 # (c) 2008, Michael Renner <michael.renner@amd.co.at>
 
-# TODO:
-# drop combined stats where split out read/write exists if it's nicer that way.
-
 =head1 NAME
 
 linux_diskstats_ - Munin plugin to monitor various values provided
@@ -188,7 +185,7 @@ DEVICE:
 }
 
 
-# Reading the scripts invocation name  and setting some parameters,
+# Reading the scripts invocation name and setting some parameters,
 # needed from here on
 
 my $basename = basename($0);
