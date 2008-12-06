@@ -8,8 +8,6 @@
 
 # TODO:
 # drop combined stats where split out read/write exists if it's nicer that way.
-# report graph_scale no should imply graph_args --rigid
-# rigid is rigid in both ways. curse you!
 # fix read_diskstats undef/exception handling
 # fix error reporting when unsupported diskstats values are detected
 
@@ -134,15 +132,20 @@ if ($@) {
 ############
 
 if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf') {
-	if (-f '/proc/diskstats') {
+	my %stats;
 
-		if (read_diskstats()) {
-			print "yes\n";
-			exit 0;
-		}
+	# Capture any croaks on the way
+	eval { %stats = parse_diskstats() };
+
+	if (! defined $@ && keys %stats) {
+
+		print "yes\n";
+		exit 0;
 	}
-	print "no\n";
-	exit 1;
+	else {
+		print "no\n";
+		exit 1;
+	}
 }
 
 
@@ -397,6 +400,9 @@ sub read_diskstats {
 		my @elems = split /\s+/, $line;
 
 		# We explicitly don't support old-style diskstats
+		# There are situations were only _some_ entries (e.g.
+		# partitions on older 2.6 kernels) have fewer stats
+		# numbers, therefore we'll skip them silently
 		if (@elems != 14) {
 			next;
 		}
@@ -414,7 +420,6 @@ sub read_sysfs {
 	my @devices;
 	my @lines;
 
-	use Data::Dumper;
 	if (defined $want_device) {
 		@devices = $want_device;
 	}
@@ -430,7 +435,11 @@ sub read_sysfs {
 		open STAT, "< $stats_file" or croak "Failed to open '$stats_file': $!\n";
 
 		my $line = <STAT>;
+
+		# Trimming whitespace
 		$line =~ s/^\s+//;
+		chomp $line;
+
 		my @elems = split /\s+/, $line;
 
 		croak "'$stats_file' doesn't contain exactly 11 values. Aborting" if (@elems != 11);
