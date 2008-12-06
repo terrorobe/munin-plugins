@@ -10,6 +10,8 @@
 # drop combined stats where split out read/write exists if it's nicer that way.
 # report graph_scale no should imply graph_args --rigid
 # rigid is rigid in both ways. curse you!
+# fix read_diskstats undef/exception handling
+# fix error reporting when unsupported diskstats values are detected
 
 =head1 NAME
 
@@ -125,9 +127,6 @@ if ($@) {
 	fake_munin_plugin();
 }
 
-my $basename = basename($0);
-my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_([\w-]+)$/;
-$device = translate_device_name($device);
 
 
 ############
@@ -188,6 +187,10 @@ DEVICE:
 }
 
 
+my $basename = basename($0);
+my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_([\w-]+)$/;
+$device = translate_device_name($device);
+
 if (not defined $device) {
 	croak "Didn't get a device name. Aborting\n";
 }
@@ -203,8 +206,7 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'config') {
 
 		print <<EOF;
 graph_title Disk latency for /dev/$device
-graph_args --base 1000 --upper-limit 100 -l 0 --rigid
-graph_scale no
+graph_args --base 1000
 graph_category disk
 
 util.label Device utilization (percent)
@@ -396,7 +398,7 @@ sub read_diskstats {
 
 		# We explicitly don't support old-style diskstats
 		if (@elems != 14) {
-			return undef;
+			next;
 		}
 		push @lines, \@elems;
 	}
