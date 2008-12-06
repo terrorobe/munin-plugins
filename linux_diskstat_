@@ -188,14 +188,17 @@ DEVICE:
 }
 
 
+# Reading the scripts invocation name  and setting some parameters,
+# needed from here on
+
 my $basename = basename($0);
 my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_([\w-]+)$/;
-$device = translate_device_name($device);
 
 if (not defined $device) {
 	croak "Didn't get a device name. Aborting\n";
 }
 
+$device = translate_device_name($device);
 
 ##########
 # config #
