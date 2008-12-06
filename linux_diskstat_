@@ -421,6 +421,8 @@ sub read_sysfs {
 	my @lines;
 
 	if (defined $want_device) {
+		# sysfs uses '!' as replacement for '/', e.g. cciss!c0d0
+		$want_device =~ tr#/#!#;
 		@devices = $want_device;
 	}
 	else {
@@ -443,6 +445,9 @@ sub read_sysfs {
 		my @elems = split /\s+/, $line;
 
 		croak "'$stats_file' doesn't contain exactly 11 values. Aborting" if (@elems != 11);
+
+		# Translate the devicename back before storing the information
+		$cur_device =~ tr#!#/#;
 
 		# Faking missing diskstats values
 		unshift @elems, ('', '', $cur_device);
