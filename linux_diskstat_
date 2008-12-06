@@ -8,8 +8,6 @@
 
 # TODO:
 # drop combined stats where split out read/write exists if it's nicer that way.
-# fix read_diskstats undef/exception handling
-# fix error reporting when unsupported diskstats values are detected
 
 =head1 NAME
 
@@ -400,7 +398,7 @@ sub read_diskstats {
 		my @elems = split /\s+/, $line;
 
 		# We explicitly don't support old-style diskstats
-		# There are situations were only _some_ entries (e.g.
+		# There are situations were only _some_ lines (e.g.
 		# partitions on older 2.6 kernels) have fewer stats
 		# numbers, therefore we'll skip them silently
 		if (@elems != 14) {
