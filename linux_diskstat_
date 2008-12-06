@@ -179,8 +179,8 @@ DEVICE:
 	for my $mode (qw(latency iops throughput)) {
 		for my $device (sort @suggested_devices) {
 
-			$device = translate_device_name($device);
-			print "${mode}_$device\n";
+			my $printdev = translate_device_name($device);
+			print "${mode}_$printdev\n";
 		}
 	}
 
