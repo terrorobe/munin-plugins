@@ -152,29 +152,35 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest') {
 
 	my %diskstats = parse_diskstats();
 
-	my @suggested_devices;
+	my %suggested_devices;
 
 DEVICE:
 	for my $devname (sort keys %diskstats) {
 
 		# Skip devices without traffic
-		next if ($diskstats{$devname}->{'rd_ticks'} == 0 && $diskstats{$devname}->{'wr_ticks'} == 0);
+		next if ($diskstats{$devname}->{'rd_ios'} == 0 && $diskstats{$devname}->{'wr_ios'} == 0);
 
 		# Skip device-mapper devices
 		next if ($devname =~ /^dm-\d+$/);
 
-		for my $existing_device (@suggested_devices) {
+		for my $existing_device (@{$suggested_devices{'iops'}}) {
 
 			# Filter out devices (partitions) which are matched by existing ones
 			# e.g. sda1 -> sda, c0d0p1 -> c0d0
 			next DEVICE if ($devname =~ m/$existing_device/);
-
 		}
-		push @suggested_devices, $devname;
-	}
 
-	for my $mode (qw(latency iops throughput)) {
-		for my $device (sort @suggested_devices) {
+		push @{$suggested_devices{'iops'}}, $devname;
+		push @{$suggested_devices{'throughput'}}, $devname;
+
+                # Only suggest latency graphs if the device supports it
+                if ($diskstats{$devname}->{'rd_ticks'} > 0 || $diskstats{$devname}->{'wr_ticks'} > 0) {
+                    push @{$suggested_devices{'latency'}}, $devname;
+                }
+        }
+
+	for my $mode (keys %suggested_devices) {
+		for my $device (sort @{$suggested_devices{$mode}}) {
 
 			my $printdev = translate_device_name($device);
 			print "${mode}_$printdev\n";
