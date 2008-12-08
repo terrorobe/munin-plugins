@@ -129,20 +129,20 @@ if ($@) {
 # autoconf #
 ############
 
-if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf') {
+if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf' ) {
     my %stats;
 
     # Capture any croaks on the way
     eval { %stats = parse_diskstats() };
 
-    if (! $@ && keys %stats) {
+    if ( !$@ && keys %stats ) {
 
-	print "yes\n";
-	exit 0;
+        print "yes\n";
+        exit 0;
     }
     else {
-	print "no\n";
-	exit 1;
+        print "no\n";
+        exit 1;
     }
 }
 
@@ -151,43 +151,47 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf') {
 # suggest #
 ###########
 
-if ( defined $ARGV[0] && $ARGV[0] eq 'suggest') {
+if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
 
     my %diskstats = parse_diskstats();
 
     my %suggested_devices;
 
-DEVICE:
-    for my $devname (sort keys %diskstats) {
+  DEVICE:
+    for my $devname ( sort keys %diskstats ) {
 
-# Skip devices without traffic
-	next if ($diskstats{$devname}->{'rd_ios'} == 0 && $diskstats{$devname}->{'wr_ios'} == 0);
+        # Skip devices without traffic
+        next
+          if ( $diskstats{$devname}->{'rd_ios'} == 0
+            && $diskstats{$devname}->{'wr_ios'} == 0 );
 
-	# Skip device-mapper devices
-	next if ($devname =~ /^dm-\d+$/);
+        # Skip device-mapper devices
+        next if ( $devname =~ /^dm-\d+$/ );
 
-	for my $existing_device (@{$suggested_devices{'iops'}}) {
+        for my $existing_device ( @{ $suggested_devices{'iops'} } ) {
 
-	# Filter out devices (partitions) which are matched by existing ones
-	# e.g. sda1 -> sda, c0d0p1 -> c0d0
-	    next DEVICE if ($devname =~ m/$existing_device/);
-	}
+            # Filter out devices (partitions) which are matched by existing ones
+            # e.g. sda1 -> sda, c0d0p1 -> c0d0
+            next DEVICE if ( $devname =~ m/$existing_device/ );
+        }
 
-	push @{$suggested_devices{'iops'}}, $devname;
-	push @{$suggested_devices{'throughput'}}, $devname;
+        push @{ $suggested_devices{'iops'} },       $devname;
+        push @{ $suggested_devices{'throughput'} }, $devname;
 
-	# Only suggest latency graphs if the device supports it
-	if ($diskstats{$devname}->{'rd_ticks'} > 0 || $diskstats{$devname}->{'wr_ticks'} > 0) {
-	    push @{$suggested_devices{'latency'}}, $devname;
-	}
+        # Only suggest latency graphs if the device supports it
+        if (   $diskstats{$devname}->{'rd_ticks'} > 0
+            || $diskstats{$devname}->{'wr_ticks'} > 0 )
+        {
+            push @{ $suggested_devices{'latency'} }, $devname;
+        }
     }
 
-    for my $mode (keys %suggested_devices) {
-	for my $device (sort @{$suggested_devices{$mode}}) {
+    for my $mode ( keys %suggested_devices ) {
+        for my $device ( sort @{ $suggested_devices{$mode} } ) {
 
-	    my $printdev = translate_device_name($device);
-	    print "${mode}_$printdev\n";
-	}
+            my $printdev = translate_device_name($device);
+            print "${mode}_$printdev\n";
+        }
     }
 
     exit 0;
@@ -198,9 +202,9 @@ DEVICE:
 # needed from here on
 
 my $basename = basename($0);
-my ($mode, $device) = $basename =~ m/linux_diskstat_(\w+)_([\w-]+)$/;
+my ( $mode, $device ) = $basename =~ m/linux_diskstat_(\w+)_([\w-]+)$/;
 
-if (not defined $device) {
+if ( not defined $device ) {
     croak "Didn't get a device name. Aborting\n";
 }
 
@@ -210,11 +214,11 @@ $device = translate_device_name($device);
 # config #
 ##########
 
-if ( defined $ARGV[0] && $ARGV[0] eq 'config') {
+if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
 
-    if ($mode eq 'latency') {
+    if ( $mode eq 'latency' ) {
 
-	print <<EOF;
+        print <<EOF;
 graph_title Disk latency for /dev/$device
 graph_args --base 1000
 graph_category disk
@@ -238,9 +242,9 @@ avgwrwait.info Average wait time for a write I/O from request start to finish (i
 EOF
 
     }
-    elsif ($mode eq 'throughput') {
+    elsif ( $mode eq 'throughput' ) {
 
-	print <<EOF;
+        print <<EOF;
 graph_title Disk throughput for /dev/$device
 graph_args --base 1024
 graph_vlabel Bytes/\${graph_period}
@@ -253,9 +257,9 @@ wrbytes.type GAUGE
 
 EOF
     }
-    elsif ($mode eq 'iops') {
+    elsif ( $mode eq 'iops' ) {
 
-	print <<EOF;
+        print <<EOF;
 graph_title Disk IOs for /dev/$device
 graph_args --base 1000
 graph_vlabel Units/\${graph_period}
@@ -276,7 +280,7 @@ EOF
 
     }
     else {
-	croak "Unknown mode $mode\n";
+        croak "Unknown mode $mode\n";
     }
     exit 0;
 }
@@ -290,15 +294,15 @@ EOF
 my %cur_diskstat = fetch_device_counters($device);
 
 
-my ($prev_time, %prev_diskstat) = restore_state();
+my ( $prev_time, %prev_diskstat ) = restore_state();
 
-save_state(time(), %cur_diskstat);
+save_state( time(), %cur_diskstat );
 
 # Probably the first run for the given device, we need state to do our job,
 # so let's wait for the next run.
-exit if (not defined $prev_time or not %prev_diskstat);
+exit if ( not defined $prev_time or not %prev_diskstat );
 
-calculate_and_print_values($prev_time, \%prev_diskstat, \%cur_diskstat);
+calculate_and_print_values( $prev_time, \%prev_diskstat, \%cur_diskstat );
 
 
 
@@ -307,13 +311,13 @@ calculate_and_print_values($prev_time, \%prev_diskstat, \%cur_diskstat);
 ########
 
 sub calculate_and_print_values {
-    my ($prev_time, $prev_stats, $cur_stats) = @_;
+    my ( $prev_time, $prev_stats, $cur_stats ) = @_;
 
     my $bytes_per_sector = 512;
 
     my $interval = time() - $prev_time;
 
-    my $read_ios = $cur_stats->{'rd_ios'} - $prev_stats->{'rd_ios'};
+    my $read_ios  = $cur_stats->{'rd_ios'} - $prev_stats->{'rd_ios'};
     my $write_ios = $cur_stats->{'wr_ios'} - $prev_stats->{'wr_ios'};
 
     my $rd_ticks = $cur_stats->{'rd_ticks'} - $prev_stats->{'rd_ticks'};
@@ -325,14 +329,14 @@ sub calculate_and_print_values {
     my $tot_ticks = $cur_stats->{'tot_ticks'} - $prev_stats->{'tot_ticks'};
 
 
-    my $read_io_per_sec = $read_ios / $interval;
+    my $read_io_per_sec  = $read_ios / $interval;
     my $write_io_per_sec = $write_ios / $interval;
 
-    my $read_bytes_per_sec = $rd_sectors / $interval * $bytes_per_sector;
+    my $read_bytes_per_sec  = $rd_sectors / $interval * $bytes_per_sector;
     my $write_bytes_per_sec = $wr_sectors / $interval * $bytes_per_sector;
 
 
-    my $total_ios = $read_ios + $write_ios;
+    my $total_ios         = $read_ios + $write_ios;
     my $total_ios_per_sec = $total_ios / $interval;
 
     # Utilization - or "how busy is the device"?
@@ -341,23 +345,29 @@ sub calculate_and_print_values {
     my $utilization = $tot_ticks / $interval;
 
     # Average time an I/O takes on the block device
-    my $servicetime = $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
+    my $servicetime =
+      $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
 
     # Average wait time for an I/O from start to finish
     # (includes queue times et al)
-    my $average_wait = $total_ios ? ($rd_ticks + $wr_ticks) / $total_ios : 0;
-    my $average_rd_wait = $read_ios ? $rd_ticks / $read_ios : 0;
+    my $average_wait = $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios : 0;
+    my $average_rd_wait = $read_ios  ? $rd_ticks / $read_ios  : 0;
     my $average_wr_wait = $write_ios ? $wr_ticks / $write_ios : 0;
 
-    my $average_rq_size_in_kb = $total_ios ? ($rd_sectors + $wr_sectors) * $bytes_per_sector / 1024 / $total_ios : 0;
-    my $average_rd_rq_size_in_kb = $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
-    my $average_wr_rq_size_in_kb = $write_ios ? $wr_sectors * $bytes_per_sector / 1024 / $write_ios : 0;
+    my $average_rq_size_in_kb =
+      $total_ios
+      ? ( $rd_sectors + $wr_sectors ) * $bytes_per_sector / 1024 / $total_ios
+      : 0;
+    my $average_rd_rq_size_in_kb =
+      $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
+    my $average_wr_rq_size_in_kb =
+      $write_ios ? $wr_sectors * $bytes_per_sector / 1024 / $write_ios : 0;
 
     my $util_print = $utilization / 10;
 
 
-    if ($mode eq 'latency') {
-	print <<EOF;
+    if ( $mode eq 'latency' ) {
+        print <<EOF;
 
 util.value $util_print
 svctm.value $servicetime
@@ -367,18 +377,18 @@ avgwrwait.value $average_wr_wait
 
 EOF
     }
-    elsif ($mode eq 'throughput') {
+    elsif ( $mode eq 'throughput' ) {
 
-	print <<EOF;
+        print <<EOF;
 
 rdbytes.value $read_bytes_per_sec
 wrbytes.value $write_bytes_per_sec
 
 EOF
     }
-    elsif ($mode eq 'iops') {
+    elsif ( $mode eq 'iops' ) {
 
-	print <<EOF;
+        print <<EOF;
 
 rdio.value $read_io_per_sec
 wrio.value $write_io_per_sec
@@ -390,32 +400,34 @@ EOF
 
     }
     else {
-	croak "Unknown mode $mode\n";
+        croak "Unknown mode $mode\n";
     }
 
 }
 
 sub read_diskstats {
 
-    open STAT, '< /proc/diskstats' or croak "Failed to open '/proc/diskstats': $!\n";
+    open STAT, '< /proc/diskstats'
+      or croak "Failed to open '/proc/diskstats': $!\n";
 
     my @lines;
 
     for my $line (<STAT>) {
-	# Strip trailing newline and leading whitespace
-	chomp $line;
-	$line =~ s/^\s+//;
 
-	my @elems = split /\s+/, $line;
+        # Strip trailing newline and leading whitespace
+        chomp $line;
+        $line =~ s/^\s+//;
 
-	# We explicitly don't support old-style diskstats
-	# There are situations where only _some_ lines (e.g.
-	# partitions on older 2.6 kernels) have fewer stats
-	# numbers, therefore we'll skip them silently
-	if (@elems != 14) {
-	    next;
-	}
-	push @lines, \@elems;
+        my @elems = split /\s+/, $line;
+
+        # We explicitly don't support old-style diskstats
+        # There are situations where only _some_ lines (e.g.
+        # partitions on older 2.6 kernels) have fewer stats
+        # numbers, therefore we'll skip them silently
+        if ( @elems != 14 ) {
+            next;
+        }
+        push @lines, \@elems;
     }
 
     close STAT or croak "Failed to close '/proc/diskstats': $!";
@@ -429,41 +441,44 @@ sub read_sysfs {
     my @devices;
     my @lines;
 
-    if (defined $want_device) {
-	# sysfs uses '!' as replacement for '/', e.g. cciss!c0d0
-	$want_device =~ tr#/#!#;
-	@devices = $want_device;
+    if ( defined $want_device ) {
+
+        # sysfs uses '!' as replacement for '/', e.g. cciss!c0d0
+        $want_device =~ tr#/#!#;
+        @devices = $want_device;
     }
     else {
-	@devices = glob "/sys/block/*/stat";
-	@devices = map { m!/sys/block/([^/]+)/stat! } @devices;
+        @devices = glob "/sys/block/*/stat";
+        @devices = map { m!/sys/block/([^/]+)/stat! } @devices;
     }
 
 
     for my $cur_device (@devices) {
-	my $stats_file = "/sys/block/$cur_device/stat";
+        my $stats_file = "/sys/block/$cur_device/stat";
 
-	open STAT, "< $stats_file" or croak "Failed to open '$stats_file': $!\n";
+        open STAT, "< $stats_file"
+          or croak "Failed to open '$stats_file': $!\n";
 
-	my $line = <STAT>;
+        my $line = <STAT>;
 
-	# Trimming whitespace
-	$line =~ s/^\s+//;
-	chomp $line;
+        # Trimming whitespace
+        $line =~ s/^\s+//;
+        chomp $line;
 
-	my @elems = split /\s+/, $line;
+        my @elems = split /\s+/, $line;
 
-	croak "'$stats_file' doesn't contain exactly 11 values. Aborting" if (@elems != 11);
+        croak "'$stats_file' doesn't contain exactly 11 values. Aborting"
+          if ( @elems != 11 );
 
-	# Translate the devicename back before storing the information
-	$cur_device =~ tr#!#/#;
+        # Translate the devicename back before storing the information
+        $cur_device =~ tr#!#/#;
 
-	# Faking missing diskstats values
-	unshift @elems, ('', '', $cur_device);
+        # Faking missing diskstats values
+        unshift @elems, ( '', '', $cur_device );
 
-	push @lines, \@elems;
+        push @lines, \@elems;
 
-	close STAT or croak "Failed to close '$stats_file': $!\n";
+        close STAT or croak "Failed to close '$stats_file': $!\n";
     }
 
     return @lines;
@@ -476,27 +491,30 @@ sub parse_diskstats {
 
     my @stats;
 
-    if (glob "/sys/block/*/stat") {
+    if ( glob "/sys/block/*/stat" ) {
 
-	@stats = read_sysfs($want_device);
+        @stats = read_sysfs($want_device);
     }
     else {
-	@stats = read_diskstats();
+        @stats = read_diskstats();
     }
 
     my %diskstats;
 
     for my $entry (@stats) {
 
-	my %devstat;
+        my %devstat;
 
-	# Hash-Slicing for fun and profit
-	@devstat{qw(major minor devname
-		rd_ios rd_merges rd_sectors rd_ticks
-		wr_ios wr_merges wr_sectors wr_ticks
-		ios_in_prog tot_ticks rq_ticks)} = @{$entry};
+        # Hash-Slicing for fun and profit
+        @devstat{
+            qw(major minor devname
+              rd_ios rd_merges rd_sectors rd_ticks
+              wr_ios wr_merges wr_sectors wr_ticks
+              ios_in_prog tot_ticks rq_ticks)
+          }
+          = @{$entry};
 
-	$diskstats{$devstat{'devname'}} = \%devstat;
+        $diskstats{ $devstat{'devname'} } = \%devstat;
     }
 
     return %diskstats;
@@ -508,11 +526,11 @@ sub fetch_device_counters {
 
     my %diskstats = parse_diskstats($want_device);
 
-    for my $devname (keys %diskstats) {
+    for my $devname ( keys %diskstats ) {
 
-	if ($want_device eq $devname) {
-	    return %{$diskstats{$devname}};
-	}
+        if ( $want_device eq $devname ) {
+            return %{ $diskstats{$devname} };
+        }
     }
     return undef;
 }
