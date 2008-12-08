@@ -336,13 +336,15 @@ sub calculate_and_print_values {
     my $total_ios_per_sec = $total_ios / $interval;
 
     # Utilization - or "how busy is the device"?
-    # If the time spent for I/O was close to 1000msec for a given second, the device is nearly 100% saturated.
+    # If the time spent for I/O was close to 1000msec for
+    # a given second, the device is nearly 100% saturated.
     my $utilization = $tot_ticks / $interval;
 
     # Average time an I/O takes on the block device
     my $servicetime = $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
 
-    # Average wait time for an I/O from start to finish (includes queue times et al)
+    # Average wait time for an I/O from start to finish
+    # (includes queue times et al)
     my $average_wait = $total_ios ? ($rd_ticks + $wr_ticks) / $total_ios : 0;
     my $average_rd_wait = $read_ios ? $rd_ticks / $read_ios : 0;
     my $average_wr_wait = $write_ios ? $wr_ticks / $write_ios : 0;
