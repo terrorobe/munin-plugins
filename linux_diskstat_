@@ -247,7 +247,7 @@ EOF
         print <<EOF;
 graph_title Disk throughput for /dev/$device
 graph_args --base 1024
-graph_vlabel Bytes/\${graph_period}
+graph_vlabel Bytes/second
 graph_category disk
 
 rdbytes.label Read Bytes
@@ -262,7 +262,7 @@ EOF
         print <<EOF;
 graph_title Disk IOs for /dev/$device
 graph_args --base 1000
-graph_vlabel Units/\${graph_period}
+graph_vlabel Units/second
 graph_category disk
 
 rdio.label Read IO/sec
