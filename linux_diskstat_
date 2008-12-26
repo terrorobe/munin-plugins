@@ -673,6 +673,7 @@ sub find_devicemapper_major {
 
 	if ($name eq 'device-mapper') {
 	    $dm_major = $major;
+	    last;
 	}
     }
     close(FH);
