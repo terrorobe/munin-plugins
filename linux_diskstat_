@@ -607,14 +607,16 @@ sub translate_devicemapper_name {
 
         croak "Failed to extract devicemapper id" unless defined ($want_minor);
 
+	my $dm_major = find_devicemapper_major();
+	croak "Failed to get device-mapper major number\n" unless defined $dm_major;
+
         for my $entry (glob "/dev/mapper/\*") {
 
                 my $rdev = (stat($entry))[6];
                 my $major = floor($rdev / 256);
                 my $minor = $rdev % 256;
 
-                # FIXME: A brave assumption that devicemapper always has the major number 253
-                if ($major == 253 && $minor == $want_minor) {
+                if ($major == $dm_major && $minor == $want_minor) {
 
                         my $pretty_name = translate_lvm_name($entry);
 
@@ -656,3 +658,24 @@ sub translate_lvm_name {
         return undef;
 }
 
+sub find_devicemapper_major {
+
+    open (FH, '< /proc/devices') or croak "Failed to open '/proc/devices': $!";
+
+    my $dm_major;
+
+    for my $line (<FH>) {
+	chomp $line;
+
+	my ($major, $name) = split /\s+/, $line, 2;
+
+	next unless defined $name;
+
+	if ($name eq 'device-mapper') {
+	    $dm_major = $major;
+	}
+    }
+    close(FH);
+
+    return $dm_major;
+}
