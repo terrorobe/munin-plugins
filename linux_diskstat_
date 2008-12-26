@@ -114,6 +114,7 @@ use strict;
 
 use File::Basename;
 use Carp;
+use POSIX;
 
 # We load our own version of save/restore_state if Munin::Plugin is unavailable.
 # Don't try this at home
@@ -165,9 +166,6 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
           if ( $diskstats{$devname}->{'rd_ios'} == 0
             && $diskstats{$devname}->{'wr_ios'} == 0 );
 
-        # Skip device-mapper devices
-        next if ( $devname =~ /^dm-\d+$/ );
-
         for my $existing_device ( @{ $suggested_devices{'iops'} } ) {
 
             # Filter out devices (partitions) which are matched by existing ones
@@ -189,7 +187,7 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
     for my $mode ( keys %suggested_devices ) {
         for my $device ( sort @{ $suggested_devices{$mode} } ) {
 
-            my $printdev = translate_device_name($device);
+            my $printdev = translate_device_name($device, 'TO_FS');
             print "${mode}_$printdev\n";
         }
     }
@@ -208,7 +206,7 @@ if ( not defined $device ) {
     croak "Didn't get a device name. Aborting\n";
 }
 
-$device = translate_device_name($device);
+$device = translate_device_name($device, 'FROM_FS');
 
 ##########
 # config #
@@ -216,10 +214,16 @@ $device = translate_device_name($device);
 
 if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
 
+    my $pretty_device = $device;
+
+    if ($device =~ /^dm-\d+$/) {
+	$pretty_device = translate_devicemapper_name($device);
+    }
+
     if ( $mode eq 'latency' ) {
 
         print <<EOF;
-graph_title Disk latency for /dev/$device
+graph_title Disk latency for /dev/$pretty_device
 graph_args --base 1000
 graph_category disk
 
@@ -245,7 +249,7 @@ EOF
     elsif ( $mode eq 'throughput' ) {
 
         print <<EOF;
-graph_title Disk throughput for /dev/$device
+graph_title Disk throughput for /dev/$pretty_device
 graph_args --base 1024
 graph_vlabel Bytes/second
 graph_category disk
@@ -260,7 +264,7 @@ EOF
     elsif ( $mode eq 'iops' ) {
 
         print <<EOF;
-graph_title Disk IOs for /dev/$device
+graph_title Disk IOs for /dev/$pretty_device
 graph_args --base 1000
 graph_vlabel Units/second
 graph_category disk
@@ -535,11 +539,30 @@ sub fetch_device_counters {
     return undef;
 }
 
+
+# We use '+' (and formerly '-') as placeholder for '/' in device-names
+# used as calling name for the script.
 sub translate_device_name {
 
-    my ($device) = @_;
+    my ($device, $mode) = @_;
 
-    $device =~ tr#-/#/-#;
+    if ($mode eq 'FROM_FS') {
+
+	# Hackaround to mitigate issues with unwisely chosen former separator
+	if (! $device =~ m/dm-\d+/) {
+	    $device =~ tr#-+#//#;
+	}
+
+    }
+    elsif ($mode eq 'TO_FS') {
+
+	$device =~ tr#/#+#;
+
+    }
+    else {
+	croak "translate_device_name: Unknown mode\n";
+    }
+
     return $device;
 }
 
@@ -575,5 +598,61 @@ sub restore_state {
 EOF
 
     eval($eval_code);
+}
+
+sub translate_devicemapper_name {
+        my ($device) = @_;
+
+        my ($want_minor) = $device =~ m/^dm-(\d+)$/;
+
+        croak "Failed to extract devicemapper id" unless defined ($want_minor);
+
+        for my $entry (glob "/dev/mapper/\*") {
+
+                my $rdev = (stat($entry))[6];
+                my $major = floor($rdev / 256);
+                my $minor = $rdev % 256;
+
+                # FIXME: A brave assumption that devicemapper always has the major number 253
+                if ($major == 253 && $minor == $want_minor) {
+
+                        my $pretty_name = translate_lvm_name($entry);
+
+                        return defined $pretty_name ? $pretty_name : $entry;
+
+                }
+        }
+        # Return original string if the device can't be found.
+        return $device;
+}
+
+
+
+sub translate_lvm_name {
+
+        my ($entry) = @_;
+
+        my $device_name = basename($entry);
+
+        # Check for single-dash-occurence to see if this could be a lvm devicemapper device.
+        if ($device_name =~ m/(?<!-)-(?!-)/) {
+
+                # split device name into vg and lv parts
+                my ($vg, $lv) = split /(?<!-)-(?!-)/, $device_name, 2;
+                return undef unless ( defined($vg) && defined($lv) );
+
+                # remove extraneous dashes from vg and lv names
+                $vg =~ s/--/-/g;
+                $lv =~ s/--/-/g;
+
+                $device_name = "$vg/$lv";
+
+                # Sanity check - does the constructed device name exist?
+                if (stat("/dev/$device_name")) {
+                        return "$device_name";
+                }
+
+        }
+        return undef;
 }
 
