@@ -549,7 +549,7 @@ sub translate_device_name {
     if ($mode eq 'FROM_FS') {
 
 	# Hackaround to mitigate issues with unwisely chosen former separator
-	if (! $device =~ m/dm-\d+/) {
+	if ( not ($device =~ m/dm-\d+/)) {
 	    $device =~ tr#-+#//#;
 	}
 
