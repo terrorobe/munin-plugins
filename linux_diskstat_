@@ -202,7 +202,7 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
 # needed from here on
 
 my $basename = basename($0);
-my ( $mode, $device ) = $basename =~ m/linux_diskstat_(\w+)_([\w-+]+)$/;
+my ( $mode, $device ) = $basename =~ m/linux_diskstat_(\w+)_([-+\w]+)$/;
 
 if ( not defined $device ) {
     croak "Didn't get a device name. Aborting\n";
