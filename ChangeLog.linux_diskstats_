@@ -1,6 +1,8 @@
-0.0.4 (2008-12-xx)
+0.0.4 (2009-03-28)
 
 * Added support for device-mapper devices
+* Set min values for each data point to prevent "negative spikes"
+  due to statistics glitches and counter wraparounds
 
 0.0.3 (2008-12-08)
 
