@@ -5,7 +5,9 @@
 #%# family=auto
 #%# capabilities=autoconf suggest
 
-# (c) 2008, Michael Renner <michael.renner@amd.co.at>
+# Author: Michael Renner <michael.renner@amd.co.at>
+
+# Version: 0.0.4, 2009-03-28
 
 
 
@@ -114,6 +116,7 @@ use strict;
 
 use File::Basename;
 use Carp;
+use POSIX;
 
 # We load our own version of save/restore_state if Munin::Plugin is unavailable.
 # Don't try this at home
@@ -165,9 +168,6 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
           if ( $diskstats{$devname}->{'rd_ios'} == 0
             && $diskstats{$devname}->{'wr_ios'} == 0 );
 
-        # Skip device-mapper devices
-        next if ( $devname =~ /^dm-\d+$/ );
-
         for my $existing_device ( @{ $suggested_devices{'iops'} } ) {
 
             # Filter out devices (partitions) which are matched by existing ones
@@ -189,7 +189,7 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
     for my $mode ( keys %suggested_devices ) {
         for my $device ( sort @{ $suggested_devices{$mode} } ) {
 
-            my $printdev = translate_device_name($device);
+            my $printdev = translate_device_name($device, 'TO_FS');
             print "${mode}_$printdev\n";
         }
     }
@@ -202,13 +202,13 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
 # needed from here on
 
 my $basename = basename($0);
-my ( $mode, $device ) = $basename =~ m/linux_diskstat_(\w+)_([\w-]+)$/;
+my ( $mode, $device ) = $basename =~ m/linux_diskstat_(\w+)_([-+\w]+)$/;
 
 if ( not defined $device ) {
     croak "Didn't get a device name. Aborting\n";
 }
 
-$device = translate_device_name($device);
+$device = translate_device_name($device, 'FROM_FS');
 
 ##########
 # config #
@@ -216,28 +216,39 @@ $device = translate_device_name($device);
 
 if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
 
+    my $pretty_device = $device;
+
+    if ($device =~ /^dm-\d+$/) {
+	$pretty_device = translate_devicemapper_name($device);
+    }
+
     if ( $mode eq 'latency' ) {
 
         print <<EOF;
-graph_title Disk latency for /dev/$device
+graph_title Disk latency for /dev/$pretty_device
 graph_args --base 1000
 graph_category disk
 
 util.label Device utilization (percent)
 util.type GAUGE
 util.info Utilization of the device. If the time spent for I/O is close to 1000msec for a given second, the device is nearly 100% saturated.
+util.min 0
 svctm.label Average device IO time (ms)
 svctm.type GAUGE
 svctm.info Average time an I/O takes on the block device
+svctm.min 0
 avgwait.label Average IO Wait time (ms)
 avgwait.type GAUGE
 avgwait.info Average wait time for an I/O from request start to finish (includes queue times et al)
+avgwait.min 0
 avgrdwait.label Average Read IO Wait time (ms)
 avgrdwait.type GAUGE
 avgrdwait.info Average wait time for a read I/O from request start to finish (includes queue times et al)
+avgrdwait.min 0
 avgwrwait.label Average Write IO Wait time (ms)
 avgwrwait.type GAUGE
 avgwrwait.info Average wait time for a write I/O from request start to finish (includes queue times et al)
+avgwrwait.min 0
 
 EOF
 
@@ -245,36 +256,43 @@ EOF
     elsif ( $mode eq 'throughput' ) {
 
         print <<EOF;
-graph_title Disk throughput for /dev/$device
+graph_title Disk throughput for /dev/$pretty_device
 graph_args --base 1024
-graph_vlabel Bytes/\${graph_period}
+graph_vlabel Bytes/second
 graph_category disk
 
 rdbytes.label Read Bytes
 rdbytes.type GAUGE
+rdbytes.min 0
 wrbytes.label Write Bytes
 wrbytes.type GAUGE
+wrbytes.min 0
 
 EOF
     }
     elsif ( $mode eq 'iops' ) {
 
         print <<EOF;
-graph_title Disk IOs for /dev/$device
+graph_title Disk IOs for /dev/$pretty_device
 graph_args --base 1000
-graph_vlabel Units/\${graph_period}
+graph_vlabel Units/second
 graph_category disk
 
 rdio.label Read IO/sec
 rdio.type GAUGE
+rdio.min 0
 wrio.label Write IO/sec
 wrio.type GAUGE
+wrio.min 0
 avgrqsz.label Average Request Size (KiB)
 avgrqsz.type GAUGE
+avgrqsz.min 0
 avgrdrqsz.label Average Read Request Size (KiB)
 avgrdrqsz.type GAUGE
+avgrdrqsz.min 0
 avgwrrqsz.label Average Write Request Size (KiB)
 avgwrrqsz.type GAUGE
+avgwrrqsz.min 0
 
 EOF
 
@@ -535,11 +553,30 @@ sub fetch_device_counters {
     return undef;
 }
 
+
+# We use '+' (and formerly '-') as placeholder for '/' in device-names
+# used as calling name for the script.
 sub translate_device_name {
 
-    my ($device) = @_;
+    my ($device, $mode) = @_;
 
-    $device =~ tr#-/#/-#;
+    if ($mode eq 'FROM_FS') {
+
+	# Hackaround to mitigate issues with unwisely chosen former separator
+	if ( not ($device =~ m/dm-\d+/)) {
+	    $device =~ tr#-+#//#;
+	}
+
+    }
+    elsif ($mode eq 'TO_FS') {
+
+	$device =~ tr#/#+#;
+
+    }
+    else {
+	croak "translate_device_name: Unknown mode\n";
+    }
+
     return $device;
 }
 
@@ -577,3 +614,83 @@ EOF
     eval($eval_code);
 }
 
+sub translate_devicemapper_name {
+        my ($device) = @_;
+
+        my ($want_minor) = $device =~ m/^dm-(\d+)$/;
+
+        croak "Failed to extract devicemapper id" unless defined ($want_minor);
+
+	my $dm_major = find_devicemapper_major();
+	croak "Failed to get device-mapper major number\n" unless defined $dm_major;
+
+        for my $entry (glob "/dev/mapper/\*") {
+
+                my $rdev = (stat($entry))[6];
+                my $major = floor($rdev / 256);
+                my $minor = $rdev % 256;
+
+                if ($major == $dm_major && $minor == $want_minor) {
+
+                        my $pretty_name = translate_lvm_name($entry);
+
+                        return defined $pretty_name ? $pretty_name : $entry;
+
+                }
+        }
+        # Return original string if the device can't be found.
+        return $device;
+}
+
+
+
+sub translate_lvm_name {
+
+        my ($entry) = @_;
+
+        my $device_name = basename($entry);
+
+        # Check for single-dash-occurence to see if this could be a lvm devicemapper device.
+        if ($device_name =~ m/(?<!-)-(?!-)/) {
+
+                # split device name into vg and lv parts
+                my ($vg, $lv) = split /(?<!-)-(?!-)/, $device_name, 2;
+                return undef unless ( defined($vg) && defined($lv) );
+
+                # remove extraneous dashes from vg and lv names
+                $vg =~ s/--/-/g;
+                $lv =~ s/--/-/g;
+
+                $device_name = "$vg/$lv";
+
+                # Sanity check - does the constructed device name exist?
+                if (stat("/dev/$device_name")) {
+                        return "$device_name";
+                }
+
+        }
+        return undef;
+}
+
+sub find_devicemapper_major {
+
+    open (FH, '< /proc/devices') or croak "Failed to open '/proc/devices': $!";
+
+    my $dm_major;
+
+    for my $line (<FH>) {
+	chomp $line;
+
+	my ($major, $name) = split /\s+/, $line, 2;
+
+	next unless defined $name;
+
+	if ($name eq 'device-mapper') {
+	    $dm_major = $major;
+	    last;
+	}
+    }
+    close(FH);
+
+    return $dm_major;
+}
