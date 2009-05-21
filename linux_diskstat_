@@ -13,7 +13,7 @@
 
 =head1 NAME
 
-linux_diskstats_ - Munin plugin to monitor various values provided
+linux_diskstat_ - Munin plugin to monitor various values provided
 via C</proc/diskstats>
 
 =head1 APPLICABLE SYSTEMS
@@ -126,6 +126,12 @@ if ($@) {
     fake_munin_plugin();
 }
 
+
+# Sanity check to ensure that the script is called the correct name.
+
+if (basename($0) !~ /^linux_diskstat_/) {
+    die qq(Please ensure that the name of the script and it's symlinks starts with "linux_diskstat_"\n);
+}
 
 
 ############
