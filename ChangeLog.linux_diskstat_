@@ -1,3 +1,8 @@
+0.0.5 (2009-05-22)
+
+* Make sure that there's only one spelling of the scripts name. Per report
+  from Christopher Tirpak
+
 0.0.4 (2009-03-28)
 
 * Added support for device-mapper devices
