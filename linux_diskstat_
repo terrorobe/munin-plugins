@@ -9,8 +9,6 @@
 
 # Version: 0.0.5, 2009-05-22
 
-
-
 =head1 NAME
 
 linux_diskstat_ - Munin plugin to monitor various values provided
@@ -110,9 +108,7 @@ GPLv2
 
 =cut
 
-
 use strict;
-
 
 use File::Basename;
 use Carp;
@@ -126,13 +122,12 @@ if ($@) {
     fake_munin_plugin();
 }
 
-
 # Sanity check to ensure that the script is called the correct name.
 
-if (basename($0) !~ /^linux_diskstat_/) {
-    die qq(Please ensure that the name of the script and it's symlinks starts with "linux_diskstat_"\n);
+if ( basename($0) !~ /^linux_diskstat_/ ) {
+    die
+        qq(Please ensure that the name of the script and it's symlinks starts with "linux_diskstat_"\n);
 }
-
 
 ############
 # autoconf #
@@ -155,7 +150,6 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf' ) {
     }
 }
 
-
 ###########
 # suggest #
 ###########
@@ -166,18 +160,18 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
 
     my %suggested_devices;
 
-  DEVICE:
+DEVICE:
     for my $devname ( sort keys %diskstats ) {
 
         # Skip devices without traffic
         next
-          if ( $diskstats{$devname}->{'rd_ios'} == 0
+            if ( $diskstats{$devname}->{'rd_ios'} == 0
             && $diskstats{$devname}->{'wr_ios'} == 0 );
 
         for my $existing_device ( @{ $suggested_devices{'iops'} } ) {
 
-            # Filter out devices (partitions) which are matched by existing ones
-            # e.g. sda1 -> sda, c0d0p1 -> c0d0
+          # Filter out devices (partitions) which are matched by existing ones
+          # e.g. sda1 -> sda, c0d0p1 -> c0d0
             next DEVICE if ( $devname =~ m/$existing_device/ );
         }
 
@@ -195,14 +189,13 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
     for my $mode ( keys %suggested_devices ) {
         for my $device ( sort @{ $suggested_devices{$mode} } ) {
 
-            my $printdev = translate_device_name($device, 'TO_FS');
+            my $printdev = translate_device_name( $device, 'TO_FS' );
             print "${mode}_$printdev\n";
         }
     }
 
     exit 0;
 }
-
 
 # Reading the scripts invocation name and setting some parameters,
 # needed from here on
@@ -211,10 +204,11 @@ my $basename = basename($0);
 my ( $mode, $device ) = $basename =~ m/linux_diskstat_(\w+)_([-+\w]+)$/;
 
 if ( not defined $device ) {
-    croak qq(Didn't get a device name. Please put this script into munin's plugin directory and run the commands suggested by "munin-node-configure --shell".\n);
+    croak
+        qq(Didn't get a device name. Please put this script into munin's plugin directory and run the commands suggested by "munin-node-configure --shell".\n);
 }
 
-$device = translate_device_name($device, 'FROM_FS');
+$device = translate_device_name( $device, 'FROM_FS' );
 
 ##########
 # config #
@@ -224,8 +218,8 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
 
     my $pretty_device = $device;
 
-    if ($device =~ /^dm-\d+$/) {
-	$pretty_device = translate_devicemapper_name($device);
+    if ( $device =~ /^dm-\d+$/ ) {
+        $pretty_device = translate_devicemapper_name($device);
     }
 
     if ( $mode eq 'latency' ) {
@@ -309,14 +303,11 @@ EOF
     exit 0;
 }
 
-
 ########
 # MAIN #
 ########
 
-
 my %cur_diskstat = fetch_device_counters($device);
-
 
 my ( $prev_time, %prev_diskstat ) = restore_state();
 
@@ -327,8 +318,6 @@ save_state( time(), %cur_diskstat );
 exit if ( not defined $prev_time or not %prev_diskstat );
 
 calculate_and_print_values( $prev_time, \%prev_diskstat, \%cur_diskstat );
-
-
 
 ########
 # SUBS #
@@ -352,13 +341,11 @@ sub calculate_and_print_values {
 
     my $tot_ticks = $cur_stats->{'tot_ticks'} - $prev_stats->{'tot_ticks'};
 
-
     my $read_io_per_sec  = $read_ios / $interval;
     my $write_io_per_sec = $write_ios / $interval;
 
     my $read_bytes_per_sec  = $rd_sectors / $interval * $bytes_per_sector;
     my $write_bytes_per_sec = $wr_sectors / $interval * $bytes_per_sector;
-
 
     my $total_ios         = $read_ios + $write_ios;
     my $total_ios_per_sec = $total_ios / $interval;
@@ -369,26 +356,30 @@ sub calculate_and_print_values {
     my $utilization = $tot_ticks / $interval;
 
     # Average time an I/O takes on the block device
-    my $servicetime =
-      $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
+    my $servicetime
+        = $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
 
     # Average wait time for an I/O from start to finish
     # (includes queue times et al)
-    my $average_wait = $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios : 0;
+    my $average_wait
+        = $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios : 0;
     my $average_rd_wait = $read_ios  ? $rd_ticks / $read_ios  : 0;
     my $average_wr_wait = $write_ios ? $wr_ticks / $write_ios : 0;
 
-    my $average_rq_size_in_kb =
-      $total_ios
-      ? ( $rd_sectors + $wr_sectors ) * $bytes_per_sector / 1024 / $total_ios
-      : 0;
-    my $average_rd_rq_size_in_kb =
-      $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
-    my $average_wr_rq_size_in_kb =
-      $write_ios ? $wr_sectors * $bytes_per_sector / 1024 / $write_ios : 0;
+    my $average_rq_size_in_kb
+        = $total_ios
+        ? ( $rd_sectors + $wr_sectors ) 
+        * $bytes_per_sector / 1024
+        / $total_ios
+        : 0;
+    my $average_rd_rq_size_in_kb
+        = $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
+    my $average_wr_rq_size_in_kb
+        = $write_ios
+        ? $wr_sectors * $bytes_per_sector / 1024 / $write_ios
+        : 0;
 
     my $util_print = $utilization / 10;
-
 
     if ( $mode eq 'latency' ) {
         print <<EOF;
@@ -432,7 +423,7 @@ EOF
 sub read_diskstats {
 
     open STAT, '< /proc/diskstats'
-      or croak "Failed to open '/proc/diskstats': $!\n";
+        or croak "Failed to open '/proc/diskstats': $!\n";
 
     my @lines;
 
@@ -473,15 +464,14 @@ sub read_sysfs {
     }
     else {
         @devices = glob "/sys/block/*/stat";
-        @devices = map { m!/sys/block/([^/]+)/stat! } @devices;
+        @devices = map {m!/sys/block/([^/]+)/stat!} @devices;
     }
-
 
     for my $cur_device (@devices) {
         my $stats_file = "/sys/block/$cur_device/stat";
 
         open STAT, "< $stats_file"
-          or croak "Failed to open '$stats_file': $!\n";
+            or croak "Failed to open '$stats_file': $!\n";
 
         my $line = <STAT>;
 
@@ -492,7 +482,7 @@ sub read_sysfs {
         my @elems = split /\s+/, $line;
 
         croak "'$stats_file' doesn't contain exactly 11 values. Aborting"
-          if ( @elems != 11 );
+            if ( @elems != 11 );
 
         # Translate the devicename back before storing the information
         $cur_device =~ tr#!#/#;
@@ -507,7 +497,6 @@ sub read_sysfs {
 
     return @lines;
 }
-
 
 sub parse_diskstats {
 
@@ -532,11 +521,11 @@ sub parse_diskstats {
         # Hash-Slicing for fun and profit
         @devstat{
             qw(major minor devname
-              rd_ios rd_merges rd_sectors rd_ticks
-              wr_ios wr_merges wr_sectors wr_ticks
-              ios_in_prog tot_ticks rq_ticks)
-          }
-          = @{$entry};
+                rd_ios rd_merges rd_sectors rd_ticks
+                wr_ios wr_merges wr_sectors wr_ticks
+                ios_in_prog tot_ticks rq_ticks)
+            }
+            = @{$entry};
 
         $diskstats{ $devstat{'devname'} } = \%devstat;
     }
@@ -559,33 +548,31 @@ sub fetch_device_counters {
     return undef;
 }
 
-
 # We use '+' (and formerly '-') as placeholder for '/' in device-names
 # used as calling name for the script.
 sub translate_device_name {
 
-    my ($device, $mode) = @_;
+    my ( $device, $mode ) = @_;
 
-    if ($mode eq 'FROM_FS') {
+    if ( $mode eq 'FROM_FS' ) {
 
-	# Hackaround to mitigate issues with unwisely chosen former separator
-	if ( not ($device =~ m/dm-\d+/)) {
-	    $device =~ tr#-+#//#;
-	}
+        # Hackaround to mitigate issues with unwisely chosen former separator
+        if ( not( $device =~ m/dm-\d+/ ) ) {
+            $device =~ tr#-+#//#;
+        }
 
     }
-    elsif ($mode eq 'TO_FS') {
+    elsif ( $mode eq 'TO_FS' ) {
 
-	$device =~ tr#/#+#;
+        $device =~ tr#/#+#;
 
     }
     else {
-	croak "translate_device_name: Unknown mode\n";
+        croak "translate_device_name: Unknown mode\n";
     }
 
     return $device;
 }
-
 
 sub fake_munin_plugin {
     my $eval_code = <<'EOF';
@@ -621,80 +608,81 @@ EOF
 }
 
 sub translate_devicemapper_name {
-        my ($device) = @_;
+    my ($device) = @_;
 
-        my ($want_minor) = $device =~ m/^dm-(\d+)$/;
+    my ($want_minor) = $device =~ m/^dm-(\d+)$/;
 
-        croak "Failed to extract devicemapper id" unless defined ($want_minor);
+    croak "Failed to extract devicemapper id" unless defined($want_minor);
 
-	my $dm_major = find_devicemapper_major();
-	croak "Failed to get device-mapper major number\n" unless defined $dm_major;
+    my $dm_major = find_devicemapper_major();
+    croak "Failed to get device-mapper major number\n"
+        unless defined $dm_major;
 
-        for my $entry (glob "/dev/mapper/\*") {
+    for my $entry ( glob "/dev/mapper/\*" ) {
 
-                my $rdev = (stat($entry))[6];
-                my $major = floor($rdev / 256);
-                my $minor = $rdev % 256;
+        my $rdev  = ( stat($entry) )[6];
+        my $major = floor( $rdev / 256 );
+        my $minor = $rdev % 256;
 
-                if ($major == $dm_major && $minor == $want_minor) {
+        if ( $major == $dm_major && $minor == $want_minor ) {
 
-                        my $pretty_name = translate_lvm_name($entry);
+            my $pretty_name = translate_lvm_name($entry);
 
-                        return defined $pretty_name ? $pretty_name : $entry;
+            return defined $pretty_name ? $pretty_name : $entry;
 
-                }
         }
-        # Return original string if the device can't be found.
-        return $device;
+    }
+
+    # Return original string if the device can't be found.
+    return $device;
 }
-
-
 
 sub translate_lvm_name {
 
-        my ($entry) = @_;
+    my ($entry) = @_;
 
-        my $device_name = basename($entry);
+    my $device_name = basename($entry);
 
-        # Check for single-dash-occurence to see if this could be a lvm devicemapper device.
-        if ($device_name =~ m/(?<!-)-(?!-)/) {
+# Check for single-dash-occurence to see if this could be a lvm devicemapper device.
+    if ( $device_name =~ m/(?<!-)-(?!-)/ ) {
 
-                # split device name into vg and lv parts
-                my ($vg, $lv) = split /(?<!-)-(?!-)/, $device_name, 2;
-                return undef unless ( defined($vg) && defined($lv) );
+        # split device name into vg and lv parts
+        my ( $vg, $lv ) = split /(?<!-)-(?!-)/, $device_name, 2;
+        return undef unless ( defined($vg) && defined($lv) );
 
-                # remove extraneous dashes from vg and lv names
-                $vg =~ s/--/-/g;
-                $lv =~ s/--/-/g;
+        # remove extraneous dashes from vg and lv names
+        $vg =~ s/--/-/g;
+        $lv =~ s/--/-/g;
 
-                $device_name = "$vg/$lv";
+        $device_name = "$vg/$lv";
 
-                # Sanity check - does the constructed device name exist?
-                if (stat("/dev/$device_name")) {
-                        return "$device_name";
-                }
-
+        # Sanity check - does the constructed device name exist?
+        if ( stat("/dev/$device_name") ) {
+            return "$device_name";
         }
-        return undef;
+
+    }
+    return undef;
 }
 
 sub find_devicemapper_major {
 
-    open (FH, '< /proc/devices') or croak "Failed to open '/proc/devices': $!";
+    open( FH, '< /proc/devices' )
+        or croak "Failed to open '/proc/devices': $!";
 
     my $dm_major;
 
     for my $line (<FH>) {
-	chomp $line;
+        chomp $line;
 
-	my ($major, $name) = split /\s+/, $line, 2;
+        my ( $major, $name ) = split /\s+/, $line, 2;
 
-	next unless defined $name;
+        next unless defined $name;
 
-	if ($name eq 'device-mapper') {
-	    $dm_major = $major;
-	    last;
-	}
+        if ( $name eq 'device-mapper' ) {
+            $dm_major = $major;
+            last;
+        }
     }
     close(FH);
 
