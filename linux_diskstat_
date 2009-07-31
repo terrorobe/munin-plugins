@@ -211,7 +211,7 @@ my $basename = basename($0);
 my ( $mode, $device ) = $basename =~ m/linux_diskstat_(\w+)_([-+\w]+)$/;
 
 if ( not defined $device ) {
-    croak "Didn't get a device name. Aborting\n";
+    croak qq(Didn't get a device name. Please put this script into munin's plugin directory and run the commands suggested by "munin-node-configure --shell".\n);
 }
 
 $device = translate_device_name($device, 'FROM_FS');
