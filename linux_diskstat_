@@ -548,7 +548,7 @@ sub fetch_device_counters {
     return undef;
 }
 
-# We use '+' (and formerly '-') as placeholder for '/' in device-names
+# We use ':' (and formerly '+' and '-') as placeholder for '/' in device-names
 # used as calling name for the script.
 sub translate_device_name {
 
@@ -558,13 +558,13 @@ sub translate_device_name {
 
         # Hackaround to mitigate issues with unwisely chosen former separator
         if ( not( $device =~ m/dm-\d+/ ) ) {
-            $device =~ tr#-+#//#;
+            $device =~ tr#-+:#///#;
         }
 
     }
     elsif ( $mode eq 'TO_FS' ) {
 
-        $device =~ tr#/#+#;
+        $device =~ tr#/#:#;
 
     }
     else {

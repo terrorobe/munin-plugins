@@ -1,3 +1,8 @@
+0.0.6
+
+* Fix separator character for devices with '/' in their names (cciss et al).
+  Munin apparently doesn't like "+" in plugin names
+
 0.0.5 (2009-05-22)
 
 * Make sure that there's only one spelling of the scripts name. Per report
