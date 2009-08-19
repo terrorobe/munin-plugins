@@ -15,7 +15,7 @@ use File::Basename;
 use Carp;
 use POSIX;
 
-# We load our own version of save/restore_state if Munin::Plugin is unavailable.
+# If Munin::Plugin is unavailable we load our own version of save/restore_state
 # Don't try this at home
 eval { require Munin::Plugin; Munin::Plugin->import; };
 
@@ -23,7 +23,7 @@ if ($@) {
     fake_munin_plugin();
 }
 
-# Handle munin autoconf & suggest
+# Handle munin 'autoconf' & 'suggest' commands
 if ( defined $ARGV[0] ) {
     do_autoconf() if ($ARGV[0] eq 'autoconf');
     do_suggest() if ($ARGV[0] eq 'suggest');
@@ -32,131 +32,33 @@ if ( defined $ARGV[0] ) {
 
 # Reading the scripts invocation name and setting some parameters,
 # needed from here on
+my ($mode, $device) = interpret_basename();
 
-my $basename = basename($0);
-my ( $scriptname, $mode, $device ) = $basename =~ m/(linux_diskstat_)(\w+)_([-+:\w]+)$/;
 
-# Sanity check to ensure that the script has the correct name.
-if ( not defined $scriptname || $scriptname ne 'linux_diskstat_' ) {
-    croak
-        qq(Please ensure that the name of the script and it's symlinks starts with "linux_diskstat_"\n);
-}
-
-if ( not defined $device ) {
-    croak
-        qq(Didn't get a device name. Please put this script into munin's plugin directory and run the commands suggested by "munin-node-configure --shell".\n);
-}
-
-$device = translate_device_name( $device, 'FROM_FS' );
-
-##########
-# config #
-##########
-
+# Handle munin 'config' command
+# This can only be done after getting the device name
 if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
-
-    my $pretty_device = $device;
-
-    if ( $device =~ /^dm-\d+$/ ) {
-        $pretty_device = translate_devicemapper_name($device);
-    }
-
-    if ( $mode eq 'latency' ) {
-
-        print <<EOF;
-graph_title Disk latency for /dev/$pretty_device
-graph_args --base 1000
-graph_category disk
-
-util.label Device utilization (percent)
-util.type GAUGE
-util.info Utilization of the device. If the time spent for I/O is close to 1000msec for a given second, the device is nearly 100% saturated.
-util.min 0
-svctm.label Average device IO time (ms)
-svctm.type GAUGE
-svctm.info Average time an I/O takes on the block device
-svctm.min 0
-avgwait.label Average IO Wait time (ms)
-avgwait.type GAUGE
-avgwait.info Average wait time for an I/O from request start to finish (includes queue times et al)
-avgwait.min 0
-avgrdwait.label Average Read IO Wait time (ms)
-avgrdwait.type GAUGE
-avgrdwait.info Average wait time for a read I/O from request start to finish (includes queue times et al)
-avgrdwait.min 0
-avgwrwait.label Average Write IO Wait time (ms)
-avgwrwait.type GAUGE
-avgwrwait.info Average wait time for a write I/O from request start to finish (includes queue times et al)
-avgwrwait.min 0
-
-EOF
-
-    }
-    elsif ( $mode eq 'throughput' ) {
-
-        print <<EOF;
-graph_title Disk throughput for /dev/$pretty_device
-graph_args --base 1024
-graph_vlabel Bytes/second
-graph_category disk
-
-rdbytes.label Read Bytes
-rdbytes.type GAUGE
-rdbytes.min 0
-wrbytes.label Write Bytes
-wrbytes.type GAUGE
-wrbytes.min 0
-
-EOF
-    }
-    elsif ( $mode eq 'iops' ) {
-
-        print <<EOF;
-graph_title Disk IOs for /dev/$pretty_device
-graph_args --base 1000
-graph_vlabel Units/second
-graph_category disk
-
-rdio.label Read IO/sec
-rdio.type GAUGE
-rdio.min 0
-wrio.label Write IO/sec
-wrio.type GAUGE
-wrio.min 0
-avgrqsz.label Average Request Size (KiB)
-avgrqsz.type GAUGE
-avgrqsz.min 0
-avgrdrqsz.label Average Read Request Size (KiB)
-avgrdrqsz.type GAUGE
-avgrdrqsz.min 0
-avgwrrqsz.label Average Write Request Size (KiB)
-avgwrrqsz.type GAUGE
-avgwrrqsz.min 0
-
-EOF
-
-    }
-    else {
-        croak "Unknown mode $mode\n";
-    }
-    exit 0;
+    do_config($device);
 }
 
-########
-# MAIN #
-########
-
+# Fetch current counter values
 my %cur_diskstat = fetch_device_counters($device);
 
+# Restore data from previous run
 my ( $prev_time, %prev_diskstat ) = restore_state();
 
+# Persist state from current run
 save_state( time(), %cur_diskstat );
 
 # Probably the first run for the given device, we need state to do our job,
 # so let's wait for the next run.
 exit if ( not defined $prev_time or not %prev_diskstat );
 
+# Here happens the magic
 calculate_and_print_values( $prev_time, \%prev_diskstat, \%cur_diskstat );
+
+exit 0;
+
 
 ########
 # SUBS #
@@ -587,6 +489,121 @@ DEVICE:
     }
 
     exit 0;
+}
+
+sub do_config {
+
+    my ($device) = @_;
+
+    # Nice name for graph
+    my $pretty_device = $device;
+
+    if ( $device =~ /^dm-\d+$/ ) {
+        $pretty_device = translate_devicemapper_name($device);
+    }
+
+    if ( $mode eq 'latency' ) {
+
+        print <<EOF;
+graph_title Disk latency for /dev/$pretty_device
+graph_args --base 1000
+graph_category disk
+
+util.label Device utilization (percent)
+util.type GAUGE
+util.info Utilization of the device. If the time spent for I/O is close to 1000msec for a given second, the device is nearly 100% saturated.
+util.min 0
+svctm.label Average device IO time (ms)
+svctm.type GAUGE
+svctm.info Average time an I/O takes on the block device
+svctm.min 0
+avgwait.label Average IO Wait time (ms)
+avgwait.type GAUGE
+avgwait.info Average wait time for an I/O from request start to finish (includes queue times et al)
+avgwait.min 0
+avgrdwait.label Average Read IO Wait time (ms)
+avgrdwait.type GAUGE
+avgrdwait.info Average wait time for a read I/O from request start to finish (includes queue times et al)
+avgrdwait.min 0
+avgwrwait.label Average Write IO Wait time (ms)
+avgwrwait.type GAUGE
+avgwrwait.info Average wait time for a write I/O from request start to finish (includes queue times et al)
+avgwrwait.min 0
+
+EOF
+
+    }
+    elsif ( $mode eq 'throughput' ) {
+
+        print <<EOF;
+graph_title Disk throughput for /dev/$pretty_device
+graph_args --base 1024
+graph_vlabel Bytes/second
+graph_category disk
+
+rdbytes.label Read Bytes
+rdbytes.type GAUGE
+rdbytes.min 0
+wrbytes.label Write Bytes
+wrbytes.type GAUGE
+wrbytes.min 0
+
+EOF
+    }
+    elsif ( $mode eq 'iops' ) {
+
+        print <<EOF;
+graph_title Disk IOs for /dev/$pretty_device
+graph_args --base 1000
+graph_vlabel Units/second
+graph_category disk
+
+rdio.label Read IO/sec
+rdio.type GAUGE
+rdio.min 0
+wrio.label Write IO/sec
+wrio.type GAUGE
+wrio.min 0
+avgrqsz.label Average Request Size (KiB)
+avgrqsz.type GAUGE
+avgrqsz.min 0
+avgrdrqsz.label Average Read Request Size (KiB)
+avgrdrqsz.type GAUGE
+avgrdrqsz.min 0
+avgwrrqsz.label Average Write Request Size (KiB)
+avgwrrqsz.type GAUGE
+avgwrrqsz.min 0
+
+EOF
+
+    }
+    else {
+        croak "Unknown mode $mode\n";
+    }
+    exit 0;
+
+}
+
+sub interpret_basename {
+
+
+    my $basename = basename($0);
+    my ( $scriptname, $mode, $device ) = $basename =~ m/(linux_diskstat_)(\w+)_([-+:\w]+)$/;
+
+    # Sanity check to ensure that the script has the correct name.
+    if ( not defined $scriptname || $scriptname ne 'linux_diskstat_' ) {
+        croak
+            qq(Please ensure that the name of the script and it's symlinks starts with "linux_diskstat_"\n);
+    }
+
+    if ( not defined $device ) {
+        croak
+            qq(Didn't get a device name. Please put this script into munin's plugin directory and run the commands suggested by "munin-node-configure --shell".\n);
+    }
+
+    $device = translate_device_name( $device, 'FROM_FS' );
+
+    return ($mode, $device);
 }
 
 =head1 NAME
