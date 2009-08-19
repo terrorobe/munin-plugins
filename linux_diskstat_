@@ -23,86 +23,24 @@ if ($@) {
     fake_munin_plugin();
 }
 
-# Sanity check to ensure that the script is called the correct name.
-
-if ( basename($0) !~ /^linux_diskstat_/ ) {
-    die
-        qq(Please ensure that the name of the script and it's symlinks starts with "linux_diskstat_"\n);
+# Handle munin autoconf & suggest
+if ( defined $ARGV[0] ) {
+    do_autoconf() if ($ARGV[0] eq 'autoconf');
+    do_suggest() if ($ARGV[0] eq 'suggest');
 }
 
-############
-# autoconf #
-############
-
-if ( defined $ARGV[0] && $ARGV[0] eq 'autoconf' ) {
-    my %stats;
-
-    # Capture any croaks on the way
-    eval { %stats = parse_diskstats() };
-
-    if ( !$@ && keys %stats ) {
-
-        print "yes\n";
-        exit 0;
-    }
-    else {
-        print "no\n";
-        exit 1;
-    }
-}
-
-###########
-# suggest #
-###########
-
-if ( defined $ARGV[0] && $ARGV[0] eq 'suggest' ) {
-
-    my %diskstats = parse_diskstats();
-
-    my %suggested_devices;
-
-DEVICE:
-    for my $devname ( sort keys %diskstats ) {
-
-        # Skip devices without traffic
-        next
-            if ( $diskstats{$devname}->{'rd_ios'} == 0
-            && $diskstats{$devname}->{'wr_ios'} == 0 );
-
-        for my $existing_device ( @{ $suggested_devices{'iops'} } ) {
-
-          # Filter out devices (partitions) which are matched by existing ones
-          # e.g. sda1 -> sda, c0d0p1 -> c0d0
-            next DEVICE if ( $devname =~ m/$existing_device/ );
-        }
-
-        push @{ $suggested_devices{'iops'} },       $devname;
-        push @{ $suggested_devices{'throughput'} }, $devname;
-
-        # Only suggest latency graphs if the device supports it
-        if (   $diskstats{$devname}->{'rd_ticks'} > 0
-            || $diskstats{$devname}->{'wr_ticks'} > 0 )
-        {
-            push @{ $suggested_devices{'latency'} }, $devname;
-        }
-    }
-
-    for my $mode ( keys %suggested_devices ) {
-        for my $device ( sort @{ $suggested_devices{$mode} } ) {
-
-            my $printdev = translate_device_name( $device, 'TO_FS' );
-            print "${mode}_$printdev\n";
-        }
-    }
-
-    exit 0;
-}
 
 # Reading the scripts invocation name and setting some parameters,
 # needed from here on
 
 my $basename = basename($0);
-my ( $mode, $device ) = $basename =~ m/linux_diskstat_(\w+)_([-+:\w]+)$/;
+my ( $scriptname, $mode, $device ) = $basename =~ m/(linux_diskstat_)(\w+)_([-+:\w]+)$/;
+
+# Sanity check to ensure that the script has the correct name.
+if ( not defined $scriptname || $scriptname ne 'linux_diskstat_' ) {
+    croak
+        qq(Please ensure that the name of the script and it's symlinks starts with "linux_diskstat_"\n);
+}
 
 if ( not defined $device ) {
     croak
@@ -590,7 +528,66 @@ sub find_devicemapper_major {
     return $dm_major;
 }
 
+sub do_autoconf {
 
+    my %stats;
+
+    # Capture any croaks on the way
+    eval { %stats = parse_diskstats() };
+
+    if ( !$@ && keys %stats ) {
+
+        print "yes\n";
+        exit 0;
+    }
+    else {
+        print "no\n";
+        exit 1;
+    }
+}
+
+sub do_suggest {
+
+    my %diskstats = parse_diskstats();
+
+    my %suggested_devices;
+
+DEVICE:
+    for my $devname ( sort keys %diskstats ) {
+
+        # Skip devices without traffic
+        next
+            if ( $diskstats{$devname}->{'rd_ios'} == 0
+            && $diskstats{$devname}->{'wr_ios'} == 0 );
+
+        for my $existing_device ( @{ $suggested_devices{'iops'} } ) {
+
+          # Filter out devices (partitions) which are matched by existing ones
+          # e.g. sda1 -> sda, c0d0p1 -> c0d0
+            next DEVICE if ( $devname =~ m/$existing_device/ );
+        }
+
+        push @{ $suggested_devices{'iops'} },       $devname;
+        push @{ $suggested_devices{'throughput'} }, $devname;
+
+        # Only suggest latency graphs if the device supports it
+        if (   $diskstats{$devname}->{'rd_ticks'} > 0
+            || $diskstats{$devname}->{'wr_ticks'} > 0 )
+        {
+            push @{ $suggested_devices{'latency'} }, $devname;
+        }
+    }
+
+    for my $mode ( keys %suggested_devices ) {
+        for my $device ( sort @{ $suggested_devices{$mode} } ) {
+
+            my $printdev = translate_device_name( $device, 'TO_FS' );
+            print "${mode}_$printdev\n";
+        }
+    }
+
+    exit 0;
+}
 
 =head1 NAME
 
