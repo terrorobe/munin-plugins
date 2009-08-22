@@ -163,7 +163,9 @@ EOF
 
 sub read_diskstats {
 
-    open STAT, '< /proc/diskstats'
+    my $statfh;
+
+    open $statfh, '<', '/proc/diskstats'
         or croak "Failed to open '/proc/diskstats': $!\n";
 
     my @lines;
@@ -186,7 +188,7 @@ sub read_diskstats {
         push @lines, \@elems;
     }
 
-    close STAT or croak "Failed to close '/proc/diskstats': $!";
+    close $statfh or croak "Failed to close '/proc/diskstats': $!";
     return @lines;
 }
 
@@ -211,7 +213,9 @@ sub read_sysfs {
     for my $cur_device (@devices) {
         my $stats_file = "/sys/block/$cur_device/stat";
 
-        open STAT, "< $stats_file"
+        my $statfh;
+
+        open $statfh, '<', $stats_file
             or croak "Failed to open '$stats_file': $!\n";
 
         my $line = <STAT>;
@@ -286,7 +290,7 @@ sub fetch_device_counters {
             return %{ $diskstats{$devname} };
         }
     }
-    return undef;
+    return;
 }
 
 # We use ':' (and formerly '+' and '-') as placeholder for '/' in device-names
@@ -340,12 +344,12 @@ sub restore_state {
 	return @{$state};
     }
     else {
-	return undef;
+	return;
     }
 }
 EOF
+    eval{$eval_code};
 
-    eval($eval_code);
 }
 
 sub translate_devicemapper_name {
@@ -389,7 +393,7 @@ sub translate_lvm_name {
 
         # split device name into vg and lv parts
         my ( $vg, $lv ) = split /(?<!-)-(?!-)/, $device_name, 2;
-        return undef unless ( defined($vg) && defined($lv) );
+        return unless ( defined($vg) && defined($lv) );
 
         # remove extraneous dashes from vg and lv names
         $vg =~ s/--/-/g;
@@ -403,17 +407,19 @@ sub translate_lvm_name {
         }
 
     }
-    return undef;
+    return;
 }
 
 sub find_devicemapper_major {
 
-    open( FH, '< /proc/devices' )
+    my $devicefh;
+
+    open( $devicefh, '<', '/proc/devices' )
         or croak "Failed to open '/proc/devices': $!";
 
     my $dm_major;
 
-    for my $line (<FH>) {
+    for my $line (<$devicefh>) {
         chomp $line;
 
         my ( $major, $name ) = split /\s+/, $line, 2;
@@ -425,7 +431,7 @@ sub find_devicemapper_major {
             last;
         }
     }
-    close(FH);
+    close($devicefh);
 
     return $dm_major;
 }
@@ -605,6 +611,8 @@ sub interpret_basename {
 
     return ($mode, $device);
 }
+
+__END__
 
 =head1 NAME
 
