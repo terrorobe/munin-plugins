@@ -7,14 +7,8 @@ use strict;
 use File::Basename;
 use Carp;
 use POSIX;
+use Munin::Plugin;
 
-# If Munin::Plugin is unavailable we load our own version of save/restore_state
-# Don't try this at home
-eval { require Munin::Plugin; Munin::Plugin->import; };
-
-if ($@) {
-    die "Munin::Plugin is required for this plugin to run";
-}
 
 # Handle munin 'autoconf' & 'suggest' commands
 if ( defined $ARGV[0] ) {
