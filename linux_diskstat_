@@ -1,13 +1,6 @@
-#!/usr/bin/perl -w
+#!@@PERL@@ -w
+# -*- perl -*-
 # vim: sts=4 sw=4 ts=8
-
-# Author: Michael Renner <michael.renner@amd.co.at>
-# Version: 0.0.6, 2009-08-17
-
-# Munin markers:
-#%# family=auto
-#%# capabilities=autoconf suggest
-
 
 use strict;
 
@@ -20,7 +13,7 @@ use POSIX;
 eval { require Munin::Plugin; Munin::Plugin->import; };
 
 if ($@) {
-    fake_munin_plugin();
+    die "Munin::Plugin is required for this plugin to run";
 }
 
 # Handle munin 'autoconf' & 'suggest' commands
@@ -319,39 +312,6 @@ sub translate_device_name {
     return $device;
 }
 
-sub fake_munin_plugin {
-    my $eval_code = <<'EOF';
-
-use Storable;
-my $storable_filename = basename($0);
-$storable_filename = "/tmp/munin-state-$storable_filename";
-
-sub save_state {
-    my @state = @_;
-
-    if ( not -e $storable_filename or -f $storable_filename ) {
-	store \@state, $storable_filename or croak "Failed to persist state to '$storable_filename': $!\n";
-    }
-    else {
-	croak "$storable_filename is probably not a regular file. Please delete it.\n";
-    }
-}
-
-sub restore_state {
-
-    if (-f $storable_filename) {
-	my $state = retrieve($storable_filename);
-	return @{$state};
-    }
-    else {
-	return;
-    }
-}
-EOF
-    eval{$eval_code};
-
-}
-
 sub translate_devicemapper_name {
     my ($device) = @_;
 
@@ -372,6 +332,8 @@ sub translate_devicemapper_name {
         if ( $major == $dm_major && $minor == $want_minor ) {
 
             my $pretty_name = translate_lvm_name($entry);
+
+	    $entry =~ s|/dev/||;
 
             return defined $pretty_name ? $pretty_name : $entry;
 
@@ -402,6 +364,7 @@ sub translate_lvm_name {
         $device_name = "$vg/$lv";
 
         # Sanity check - does the constructed device name exist?
+        # Breaks unless we are root.
         if ( stat("/dev/$device_name") ) {
             return "$device_name";
         }
@@ -616,13 +579,24 @@ __END__
 
 =head1 NAME
 
-linux_diskstat_ - Munin plugin to monitor various values provided
+linux_diskstat_ - Munin wildcard plugin to monitor various values provided
 via C</proc/diskstats>
 
 =head1 APPLICABLE SYSTEMS
 
 Linux 2.6 systems with extended block device statistics enabled.
 
+
+=head1 CONFIGURATION
+
+None needed.
+
+This plugin displays nicer device-mapper device names if it is run as
+root, but it functions as needed without root privilege.  To configure
+for running as root enter this in a plugin configuration file:
+
+  [diskstat_*]
+    user root
 
 =head1 INTERPRETATION
 
@@ -691,16 +665,33 @@ modification of any of the values returned by stat(2), etc.)
 
 =head1 ACKNOWLEDGEMENTS
 
-The core logic of this script is based on the B<iostat> tool of the B<sysstat>
-package written and maintained by Sebastien Godard.
+The core logic of this script is based on the B<iostat> tool of the
+B<sysstat> package written and maintained by Sebastien Godard.
 
 =head1 SEE ALSO
 
-See C<Documentation/iostats.txt> in your Linux source tree for further information
-about the C<numbers> involved in this module.
+See C<Documentation/iostats.txt> in your Linux source tree for further
+information about the C<numbers> involved in this module.
 
-L<http://www.westnet.com/~gsmith/content/linux-pdflush.htm> has a nice writeup
-about the pdflush daemon.
+L<http://www.westnet.com/~gsmith/content/linux-pdflush.htm> has a nice
+writeup about the pdflush daemon.
+
+=head1 VERSION
+
+  $Id$
+
+=head1 MAGIC MARKERS
+
+  #%# family=manual
+  #%# capabilities=autoconf suggest
+
+=head1 BUGS
+
+Does not work correctly with multiple Munin masters as it calculates
+averages between each time it is run.  In such a case it can be run
+twice in the same second, this causes "division by zero" errors.  If
+it is run two seconds apart the average it reports is over 2 seconds,
+not 5 minutes.
 
 =head1 AUTHOR
 
@@ -712,4 +703,3 @@ GPLv2
 
 
 =cut
-
