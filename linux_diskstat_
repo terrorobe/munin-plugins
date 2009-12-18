@@ -551,12 +551,12 @@ sub interpret_basename {
 
 
     my $basename = basename($0);
-    my ( $scriptname, $mode, $device ) = $basename =~ m/(linux_diskstat_)(\w+)_([-+:\w]+)$/;
+    my ( $scriptname, $mode, $device ) = $basename =~ m/(diskstat_)(\w+)_([-+:\w]+)$/;
 
     # Sanity check to ensure that the script has the correct name.
-    if ( not defined $scriptname || $scriptname ne 'linux_diskstat_' ) {
+    if ( not defined $scriptname || $scriptname ne 'diskstat_' ) {
         croak
-            qq(Please ensure that the name of the script and it's symlinks starts with "linux_diskstat_"\n);
+            qq(Please ensure that the name of the script and it's symlinks starts with "diskstat_"\n);
     }
 
     if ( not defined $device ) {
@@ -573,7 +573,7 @@ __END__
 
 =head1 NAME
 
-linux_diskstat_ - Munin wildcard plugin to monitor various values provided
+diskstat_ - Munin wildcard plugin to monitor various values provided
 via C</proc/diskstats>
 
 =head1 APPLICABLE SYSTEMS
