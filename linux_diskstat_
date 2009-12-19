@@ -1,22 +1,32 @@
+#!/usr/bin/perl
 #!@@PERL@@ -w
 # -*- perl -*-
 # vim: sts=4 sw=4 ts=8
 
 use strict;
+use warnings;
 
 use File::Basename;
 use Carp;
 use POSIX;
 use Munin::Plugin;
+# AAAAAAAAAAAAARGH
+use MIME::Base64;
+use Storable qw(freeze thaw);
+
+use Data::Dumper;
+
+# Hardcoded pollinterval of 300 seconds
+my $poll_interval = 300;
 
 # Check for multigraph capabilities
-need_multigraph();
+# Bugreport... need a method to test it by hand
+#need_multigraph();
 
-# Handle munin 'autoconf' & 'suggest' commands
-if ( defined $ARGV[0] ) {
-    do_autoconf() if ($ARGV[0] eq 'autoconf');
-}
+# Handle munin 'autoconf' command
+do_autoconf() if ( $ARGV[0] && $ARGV[0] eq 'autoconf');
 
+set_state_name('yadda');
 
 # Handle munin 'config' command
 # This can only be done after getting the device name
@@ -28,17 +38,19 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
 my %cur_diskstats = fetch_device_counters();
 
 # Restore data from previous run
-my ( $prev_time, %prev_diskstats ) = restore_state();
+my ( $prev_time, %prev_diskstats ) = choose_old_state();
 
 # Persist state from current run
-save_state( time(), %cur_diskstat );
+add_new_state( time(), %cur_diskstats );
+
+exit 42;
 
 # Probably the first run for the given device, we need state to do our job,
 # so let's wait for the next run.
-exit if ( not defined $prev_time or not %prev_diskstat );
+exit if ( not defined $prev_time or not %prev_diskstats );
 
 # Here happens the magic
-calculate_and_print_values( $prev_time, \%prev_diskstat, \%cur_diskstat );
+calculate_and_print_values( $prev_time, \%prev_diskstats, \%cur_diskstats );
 
 exit 0;
 
@@ -48,11 +60,66 @@ exit 0;
 # generate detailed stats for iops, througput & latency for every device
 #   skip devices which are missing from old state but save the data in the new state
 #   only do latency when the device has ticks?
+# file locking?
 
 
 ########
 # SUBS #
 ########
+
+# choose_old_state
+#
+# Look through the list of old states and choose the one which is closest
+# to the poll interval 
+
+sub choose_old_state {
+
+    my (%states) = restore_state();
+
+    return undef unless (keys %states);
+
+    my $now = time();
+
+    my $old_delta;
+    my $return_timestamp;
+
+    for my $timestamp (sort keys %states) {
+
+        # Calculate deviation from ideal interval
+        my $delta = abs( $now - $timestamp - $poll_interval );
+
+        # Safe initial delta
+        $old_delta = $delta + 1 unless defined $old_delta;
+
+        # Bail out and use previous result if it was closer to the interval
+        last if ($delta > $old_delta);
+
+        $old_delta = $delta;
+        $return_timestamp = $timestamp;
+    }
+    return $return_timestamp, %{ thaw decode_base64 $states{$return_timestamp} };
+}
+
+# add_new_state
+#
+# Add the current state to the list of states
+# Discard any state that is older than the poll interval
+
+sub add_new_state {
+    my ($cur_time, %cur_diskstats) = @_;
+
+    my (%states) = restore_state();
+    my $now = time();
+
+    for my $timestamp (sort keys %states) {
+        last if ( ( $now - $timestamp ) <= $poll_interval );
+        delete $states{$timestamp};
+    }
+
+    $states{$cur_time} = encode_base64 freeze \%cur_diskstats;
+
+    save_state(%states);
+}
 
 sub calculate_values {
     my ( $prev_time, $prev_stats, $cur_stats ) = @_;
@@ -179,7 +246,7 @@ sub read_diskstats {
 
     my @lines;
 
-    for my $line (<STAT>) {
+    for my $line (<$statfh>) {
 
         # Strip trailing newline and leading whitespace
         chomp $line;
@@ -217,7 +284,7 @@ sub read_sysfs {
         open $statfh, '<', $stats_file
             or croak "Failed to open '$stats_file': $!\n";
 
-        my $line = <STAT>;
+        my $line = <$statfh>;
 
         # Trimming whitespace
         $line =~ s/^\s+//;
@@ -236,7 +303,7 @@ sub read_sysfs {
 
         push @lines, \@elems;
 
-        close STAT or croak "Failed to close '$stats_file': $!\n";
+        close $statfh or croak "Failed to close '$stats_file': $!\n";
     }
 
     return @lines;
@@ -279,27 +346,28 @@ sub fetch_device_counters {
 
     my %diskstats = parse_diskstats();
 
+    my @seen_devices;
 DEVICE:
     for my $devname ( keys %diskstats ) {
 
         # Remove devices without traffic
         if ( $diskstats{$devname}->{'rd_ios'} == 0
                 && $diskstats{$devname}->{'wr_ios'} == 0 ) {
-            delete $diskstats{$devname}
+            delete $diskstats{$devname};
             next DEVICE;
         }
 
-        for my $existing_device ( @devices ) {
+        for my $existing_device ( @seen_devices ) {
 
           # Filter out devices (partitions) which are matched by existing ones
           # e.g. sda1 -> sda, c0d0p1 -> c0d0
              if ( $devname =~ m/$existing_device/ ) {
-                 delete $diskstats{$devname}
+                 delete $diskstats{$devname};
                  next DEVICE;
              }
         }
 
-        push @devices, $devname;
+        push @seen_devices, $devname;
     }
     return %diskstats;
 }
