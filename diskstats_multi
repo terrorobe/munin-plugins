@@ -58,7 +58,6 @@ generate_multigraph_data( $prev_time, \%prev_diskstats, \%cur_diskstats );
 exit 0;
 
 # FIXME:
-# translate devicemapper names in overview graph?
 # totals for overview graphs?
 # do +/- for ios & bytes?
 # file locking?
@@ -199,8 +198,6 @@ sub calculate_values {
 
     my $util_print = $utilization / 10;
 
-    # Does the device provide latency information?
-    my $does_latency = $cur_stats->{'rd_ticks'} + $cur_stats->{'wr_ticks'} ? 1 : 0;
 
     return { utilization => $util_print,
         servicetime => $servicetime,
@@ -214,7 +211,6 @@ sub calculate_values {
         average_rq_size_in_kb => $average_rq_size_in_kb,
         average_rd_rq_size_in_kb => $average_rd_rq_size_in_kb,
         average_wr_rq_size_in_kb => $average_wr_rq_size_in_kb,
-        does_latency => $does_latency,
     };
 
 }
@@ -227,7 +223,7 @@ sub print_values_root {
 
     for my $device (keys %{ $result }) {
 
-        next unless ($result->{$device}->{'does_latency'});
+        next unless ($cur_diskstats{$device}->{'does_latency'});
 
         print "${device}_util.value " . $result->{$device}->{'utilization'} . "\n";
         print "${device}_avgwait.value " . $result->{$device}->{'average_wait'} . "\n";
@@ -253,7 +249,7 @@ sub print_values_device {
 
     my ($device, $result) = @_;
 
-    if ( $result->{'does_latency'} ) {
+    if ( $cur_diskstats{$device}->{'does_latency'} ) {
         print <<EOF;
 
 multigraph ${plugin_name}_latency.$device
@@ -382,6 +378,18 @@ sub parse_diskstats {
                 ios_in_prog tot_ticks rq_ticks)
             }
             = @{$entry};
+
+        # Resolve devicemapper names to their LVM counterparts
+        my $pretty_device = $devstat{'devname'};
+
+        if ( $pretty_device =~ /^dm-\d+$/ ) {
+            $pretty_device = translate_devicemapper_name($pretty_device);
+        }
+
+        $devstat{'pretty_device_name'} = $pretty_device;
+
+        # Does the device provide latency information?
+        $devstat{'does_latency'} = $devstat{'rd_ticks'} + $devstat{'wr_ticks'} ? 1 : 0;
 
         $diskstats{ $devstat{'devname'} } = \%devstat;
     }
@@ -544,16 +552,15 @@ graph_category disk
 
 EOF
 
-    for my $device (keys %cur_diskstats) {
-        my $does_latency = $cur_diskstats{$device}->{'rd_ticks'} + $cur_diskstats{$device}->{'wr_ticks'} ? 1 : 0;
-        next unless $does_latency;
+    for my $device (sort keys %cur_diskstats) {
+        next unless $cur_diskstats{$device}->{'does_latency'};
 
         print <<EOF;
-${device}_util.label Device utilization (percent)
+${device}_util.label $cur_diskstats{$device}->{'pretty_device_name'} utilization (percent)
 ${device}_util.type GAUGE
 ${device}_util.info Utilization of the device
 ${device}_util.min 0
-${device}_avgwait.label Average IO Wait time (ms)
+${device}_avgwait.label $cur_diskstats{$device}->{'pretty_device_name'} average IO Wait (ms)
 ${device}_avgwait.type GAUGE
 ${device}_avgwait.info Average wait time for an I/O request
 ${device}_avgwait.min 0
@@ -574,13 +581,13 @@ graph_category disk
 
 EOF
 
-    for my $device (keys %cur_diskstats) {
+    for my $device (sort keys %cur_diskstats) {
 
         print <<EOF;
-${device}_rdbytes.label Read Bytes
+${device}_rdbytes.label $cur_diskstats{$device}->{'pretty_device_name'} Read Bytes
 ${device}_rdbytes.type GAUGE
 ${device}_rdbytes.min 0
-${device}_wrbytes.label Write Bytes
+${device}_wrbytes.label $cur_diskstats{$device}->{'pretty_device_name'} Write Bytes
 ${device}_wrbytes.type GAUGE
 ${device}_wrbytes.min 0
 EOF
@@ -599,13 +606,13 @@ graph_category disk
 
 EOF
 
-    for my $device (keys %cur_diskstats) {
+    for my $device (sort keys %cur_diskstats) {
 
         print <<EOF;
-${device}_rdio.label Read IO/sec
+${device}_rdio.label $cur_diskstats{$device}->{'pretty_device_name'} Read IO/sec
 ${device}_rdio.type GAUGE
 ${device}_rdio.min 0
-${device}_wrio.label Write IO/sec
+${device}_wrio.label $cur_diskstats{$device}->{'pretty_device_name'} Write IO/sec
 ${device}_wrio.type GAUGE
 ${device}_wrio.min 0
 EOF
@@ -615,19 +622,12 @@ EOF
 
 sub do_config_device {
 
-
-    for my $device (keys %cur_diskstats) {
+    for my $device (sort keys %cur_diskstats) {
 
         # Nice name for graph
-        my $pretty_device = $device;
+        my $pretty_device = $cur_diskstats{$device}->{'pretty_device_name'};
 
-        if ( $device =~ /^dm-\d+$/ ) {
-            $pretty_device = translate_devicemapper_name($device);
-        }
-
-        my $does_latency = $cur_diskstats{$device}->{'rd_ticks'} + $cur_diskstats{$device}->{'wr_ticks'} ? 1 : 0;
-
-        if ( $does_latency ) {
+        if ( $cur_diskstats{$device}->{'does_latency'} ) {
 
             print <<EOF;
 multigraph ${plugin_name}_latency.$device
