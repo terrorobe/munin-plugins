@@ -19,7 +19,7 @@ use Data::Dumper;
 # Hardcoded pollinterval of 300 seconds
 my $poll_interval = 300;
 
-my $plugin_name = 'diskstat';
+my $plugin_name = $Munin::Plugin::me;
 
 # Check for multigraph capabilities
 # FIXME: need_multigraph succeeds only when run from within munin.
@@ -30,7 +30,7 @@ need_multigraph() if ($ENV{'MUNIN_VERSION'});
 do_autoconf() if ( $ARGV[0] && $ARGV[0] eq 'autoconf');
 
 # FIXME: See Ticket #810
-set_state_name($plugin_name) unless defined $Muning::Plugin::statefile;
+set_state_name($plugin_name) unless defined $Munin::Plugin::statefile;
 
 # Fetch current counter values
 my %cur_diskstats = fetch_device_counters();
@@ -62,6 +62,7 @@ exit 0;
 # totals for overview graphs?
 # do +/- for ios & bytes?
 # file locking?
+# Filter for devices for node config?
 
 
 ########
@@ -709,8 +710,8 @@ __END__
 
 =head1 NAME
 
-diskstat_ - Munin wildcard plugin to monitor various values provided
-via C</proc/diskstats>
+diskstats_multi - Munin multigraph plugin to monitor various values provided
+via C</proc/diskstats> or C</sys/block/*/stat>
 
 =head1 APPLICABLE SYSTEMS
 
@@ -725,7 +726,7 @@ This plugin displays nicer device-mapper device names if it is run as
 root, but it functions as needed without root privilege.  To configure
 for running as root enter this in a plugin configuration file:
 
-  [diskstat_*]
+  [diskstats_multi]
     user root
 
 =head1 INTERPRETATION
@@ -814,14 +815,6 @@ writeup about the pdflush daemon.
 
   #%# family=manual
   #%# capabilities=autoconf
-
-=head1 BUGS
-
-Does not work correctly with multiple Munin masters as it calculates
-averages between each time it is run.  In such a case it can be run
-twice in the same second, this causes "division by zero" errors.  If
-it is run two seconds apart the average it reports is over 2 seconds,
-not 5 minutes.
 
 =head1 AUTHOR
 
