@@ -19,6 +19,8 @@ use Data::Dumper;
 # Hardcoded pollinterval of 300 seconds
 my $poll_interval = 300;
 
+my $plugin_name = 'diskstat';
+
 # Check for multigraph capabilities
 # Bugreport... need a method to test it by hand
 #need_multigraph();
@@ -43,14 +45,15 @@ my ( $prev_time, %prev_diskstats ) = choose_old_state();
 # Persist state from current run
 add_new_state( time(), %cur_diskstats );
 
-exit 42;
+print Dumper \%prev_diskstats, \%cur_diskstats;
+
 
 # Probably the first run for the given device, we need state to do our job,
 # so let's wait for the next run.
 exit if ( not defined $prev_time or not %prev_diskstats );
 
 # Here happens the magic
-calculate_and_print_values( $prev_time, \%prev_diskstats, \%cur_diskstats );
+generate_multigraph_data( $prev_time, \%prev_diskstats, \%cur_diskstats );
 
 exit 0;
 
@@ -66,6 +69,22 @@ exit 0;
 ########
 # SUBS #
 ########
+
+sub generate_multigraph_data {
+
+    my ( $prev_time, $prev_diskstats, $cur_diskstats ) = @_;
+
+    my %results;
+
+    for my $device (keys %{ $cur_diskstats }) {
+        $results{$device} = calculate_values($prev_time, $prev_diskstats{$device}, $cur_diskstats{$device});
+    }
+
+    for my $device (keys %results) {
+        print_values_device($device, $results{$device});
+    }
+}
+
 
 # choose_old_state
 #
@@ -103,7 +122,7 @@ sub choose_old_state {
 # add_new_state
 #
 # Add the current state to the list of states
-# Discard any state that is older than the poll interval
+# Discard any state that is noticeable older than the poll interval
 
 sub add_new_state {
     my ($cur_time, %cur_diskstats) = @_;
@@ -112,7 +131,7 @@ sub add_new_state {
     my $now = time();
 
     for my $timestamp (sort keys %states) {
-        last if ( ( $now - $timestamp ) <= $poll_interval );
+        last if ( ( $now - $timestamp ) <= $poll_interval * 1.5 );
         delete $states{$timestamp};
     }
 
@@ -179,7 +198,7 @@ sub calculate_values {
 
     my $util_print = $utilization / 10;
 
-    return \{ utilization => $util_print,
+    return { utilization => $util_print,
         servicetime => $servicetime,
         average_wait => $average_wait,
         average_rd_wait => $average_rd_wait,
@@ -188,54 +207,51 @@ sub calculate_values {
         write_bytes_per_sec => $write_bytes_per_sec,
         read_io_per_sec => $read_io_per_sec,
         write_io_per_sec => $write_io_per_sec,
+        average_rq_size_in_kb => $average_rq_size_in_kb,
         average_rd_rq_size_in_kb => $average_rd_rq_size_in_kb,
         average_wr_rq_size_in_kb => $average_wr_rq_size_in_kb,
+        does_latency => $rd_ticks + $wr_ticks ? 1 : 0,
     };
 
 }
 
-=pod
-sub print_values {
+sub print_values_device {
 
-    if ( $mode eq 'latency' ) {
+    my ($device, $result) = @_;
+
+    if ( $result->{'does_latency'} ) {
         print <<EOF;
 
-util.value $util_print
-svctm.value $servicetime
-avgwait.value $average_wait
-avgrdwait.value $average_rd_wait
-avgwrwait.value $average_wr_wait
+multigraph ${plugin_name}_latency.$device
+util.value $result->{'utilization'}
+svctm.value $result->{'servicetime'}
+avgwait.value $result->{'average_wait'}
+avgrdwait.value $result->{'average_rd_wait'}
+avgwrwait.value $result->{'average_wr_wait'}
 
 EOF
     }
-    elsif ( $mode eq 'throughput' ) {
 
-        print <<EOF;
+    print <<EOF;
 
-rdbytes.value $read_bytes_per_sec
-wrbytes.value $write_bytes_per_sec
-
-EOF
-    }
-    elsif ( $mode eq 'iops' ) {
-
-        print <<EOF;
-
-rdio.value $read_io_per_sec
-wrio.value $write_io_per_sec
-avgrqsz.value $average_rq_size_in_kb
-avgrdrqsz.value $average_rd_rq_size_in_kb
-avgwrrqsz.value $average_wr_rq_size_in_kb
+multigraph ${plugin_name}_throughput.$device
+rdbytes.value $result->{'read_bytes_per_sec'}
+wrbytes.value $result->{'write_bytes_per_sec'}
 
 EOF
 
-    }
-    else {
-        croak "Unknown mode $mode\n";
-    }
+    print <<EOF;
+
+multigraph ${plugin_name}_iops.$device
+rdio.value $result->{'read_io_per_sec'}
+wrio.value $result->{'write_io_per_sec'}
+avgrqsz.value $result->{'average_rq_size_in_kb'}
+avgrdrqsz.value $result->{'average_rd_rq_size_in_kb'}
+avgwrrqsz.value $result->{'average_wr_rq_size_in_kb'}
+
+EOF
 
 }
-=cut
 
 sub read_diskstats {
 
