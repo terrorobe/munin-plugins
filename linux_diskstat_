@@ -30,14 +30,14 @@ do_autoconf() if ( $ARGV[0] && $ARGV[0] eq 'autoconf');
 
 set_state_name('yadda');
 
+# Fetch current counter values
+my %cur_diskstats = fetch_device_counters();
+
 # Handle munin 'config' command
-# This can only be done after getting the device name
+# This can only be done after getting the device data
 if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
     do_config();
 }
-
-# Fetch current counter values
-my %cur_diskstats = fetch_device_counters();
 
 # Restore data from previous run
 my ( $prev_time, %prev_diskstats ) = choose_old_state();
@@ -443,7 +443,6 @@ sub translate_devicemapper_name {
 	    $entry =~ s|/dev/||;
 
             return defined $pretty_name ? $pretty_name : $entry;
-
         }
     }
 
@@ -526,19 +525,111 @@ sub do_autoconf {
 
 sub do_config {
 
-    my ($device) = @_;
+    do_config_root();
+    do_config_device();
 
-    my $mode = 'dummy';
-    # Nice name for graph
-    my $pretty_device = $device;
+    exit 0;
+}
 
-    if ( $device =~ /^dm-\d+$/ ) {
-        $pretty_device = translate_devicemapper_name($device);
-    }
+sub do_config_root {
 
-    if ( $mode eq 'latency' ) {
+# Print config for latency
+
+    print <<EOF;
+multigraph ${plugin_name}_latency
+graph_title Disk latency overview
+graph_args --base 1000
+graph_category disk
+
+EOF
+
+    for my $device (keys %cur_diskstats) {
+        my $does_latency = $cur_diskstats{$device}->{'rd_ticks'} + $cur_diskstats{$device}->{'wr_ticks'} ? 1 : 0;
+        next unless $does_latency;
 
         print <<EOF;
+${device}_util.label Device utilization (percent)
+${device}_util.type GAUGE
+${device}_util.info Utilization of the device
+${device}_util.min 0
+${device}_avgwait.label Average IO Wait time (ms)
+${device}_avgwait.type GAUGE
+${device}_avgwait.info Average wait time for an I/O request
+${device}_avgwait.min 0
+EOF
+    }
+
+
+
+# Print config for throughput
+
+    print <<EOF;
+
+multigraph ${plugin_name}_throughput
+graph_title Disk throughput overview
+graph_args --base 1024
+graph_vlabel Bytes/second
+graph_category disk
+
+EOF
+
+    for my $device (keys %cur_diskstats) {
+
+        print <<EOF;
+${device}_rdbytes.label Read Bytes
+${device}_rdbytes.type GAUGE
+${device}_rdbytes.min 0
+${device}_wrbytes.label Write Bytes
+${device}_wrbytes.type GAUGE
+${device}_wrbytes.min 0
+EOF
+    }
+
+
+# Print config for iops
+
+    print <<EOF;
+
+multigraph ${plugin_name}_iops
+graph_title Disk IOs overview
+graph_args --base 1000
+graph_vlabel Units/second
+graph_category disk
+
+EOF
+
+    for my $device (keys %cur_diskstats) {
+
+        print <<EOF;
+${device}_rdio.label Read IO/sec
+${device}_rdio.type GAUGE
+${device}_rdio.min 0
+${device}_wrio.label Write IO/sec
+${device}_wrio.type GAUGE
+${device}_wrio.min 0
+EOF
+    }
+    print "\n";
+}
+
+sub do_config_device {
+
+
+    for my $device (keys %cur_diskstats) {
+
+        # Nice name for graph
+        my $pretty_device = $device;
+
+        if ( $device =~ /^dm-\d+$/ ) {
+            $pretty_device = translate_devicemapper_name($device);
+        }
+
+        my $does_latency = $cur_diskstats{$device}->{'rd_ticks'} + $cur_diskstats{$device}->{'wr_ticks'} ? 1 : 0;
+
+        if ( $does_latency ) {
+
+            print <<EOF;
+multigraph ${plugin_name}_latency.$device
 graph_title Disk latency for /dev/$pretty_device
 graph_args --base 1000
 graph_category disk
@@ -566,10 +657,10 @@ avgwrwait.min 0
 
 EOF
 
-    }
-    elsif ( $mode eq 'throughput' ) {
+        }
 
         print <<EOF;
+multigraph ${plugin_name}_throughput.$device
 graph_title Disk throughput for /dev/$pretty_device
 graph_args --base 1024
 graph_vlabel Bytes/second
@@ -583,10 +674,9 @@ wrbytes.type GAUGE
 wrbytes.min 0
 
 EOF
-    }
-    elsif ( $mode eq 'iops' ) {
 
         print <<EOF;
+multigraph ${plugin_name}_iops.$device
 graph_title Disk IOs for /dev/$pretty_device
 graph_args --base 1000
 graph_vlabel Units/second
@@ -610,12 +700,8 @@ avgwrrqsz.min 0
 
 EOF
 
-    }
-    else {
-        croak "Unknown mode $mode\n";
-    }
-    exit 0;
 
+    }
 }
 
 
