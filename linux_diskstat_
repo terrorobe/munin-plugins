@@ -22,13 +22,14 @@ my $poll_interval = 300;
 my $plugin_name = 'diskstat';
 
 # Check for multigraph capabilities
-# Bugreport... need a method to test it by hand
+# FIXME: Bugreport... need a method to test it by hand
 #need_multigraph();
 
 # Handle munin 'autoconf' command
 do_autoconf() if ( $ARGV[0] && $ARGV[0] eq 'autoconf');
 
-set_state_name('yadda');
+# See Ticket #810
+set_state_name($plugin_name);
 
 # Fetch current counter values
 my %cur_diskstats = fetch_device_counters();
@@ -55,12 +56,10 @@ generate_multigraph_data( $prev_time, \%prev_diskstats, \%cur_diskstats );
 
 exit 0;
 
-# find ideal old state
-# gather current data for all existing devices
-# generate overview stats for iops, througput & latency
-# generate detailed stats for iops, througput & latency for every device
-#   skip devices which are missing from old state but save the data in the new state
-#   only do latency when the device has ticks?
+# FIXME:
+# translate devicemapper names in overview graph?
+# totals for overview graphs?
+# do +/- for ios & bytes?
 # file locking?
 
 
