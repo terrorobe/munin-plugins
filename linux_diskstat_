@@ -9,6 +9,8 @@ use Carp;
 use POSIX;
 use Munin::Plugin;
 
+# Check for multigraph capabilities
+need_multigraph();
 
 # Handle munin 'autoconf' & 'suggest' commands
 if ( defined $ARGV[0] ) {
@@ -17,19 +19,14 @@ if ( defined $ARGV[0] ) {
 }
 
 
-# Reading the scripts invocation name and setting some parameters,
-# needed from here on
-my ($mode, $device) = interpret_basename();
-
-
 # Handle munin 'config' command
 # This can only be done after getting the device name
 if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
-    do_config($device);
+    do_config();
 }
 
 # Fetch current counter values
-my %cur_diskstat = fetch_device_counters($device);
+my %cur_diskstat = fetch_device_counters();
 
 # Restore data from previous run
 my ( $prev_time, %prev_diskstat ) = restore_state();
@@ -547,27 +544,6 @@ EOF
 
 }
 
-sub interpret_basename {
-
-
-    my $basename = basename($0);
-    my ( $scriptname, $mode, $device ) = $basename =~ m/(diskstat_)(\w+)_([-+:\w]+)$/;
-
-    # Sanity check to ensure that the script has the correct name.
-    if ( not defined $scriptname || $scriptname ne 'diskstat_' ) {
-        croak
-            qq(Please ensure that the name of the script and it's symlinks starts with "diskstat_"\n);
-    }
-
-    if ( not defined $device ) {
-        croak
-            qq(Didn't get a device name. Please put this script into munin's plugin directory and run the commands suggested by "munin-node-configure --shell".\n);
-    }
-
-    $device = translate_device_name( $device, 'FROM_FS' );
-
-    return ($mode, $device);
-}
 
 __END__
 
