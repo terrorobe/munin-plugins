@@ -45,8 +45,6 @@ my ( $prev_time, %prev_diskstats ) = choose_old_state();
 # Persist state from current run
 add_new_state( time(), %cur_diskstats );
 
-print Dumper \%prev_diskstats, \%cur_diskstats;
-
 
 # Probably the first run for the given device, we need state to do our job,
 # so let's wait for the next run.
@@ -79,6 +77,8 @@ sub generate_multigraph_data {
     for my $device (keys %{ $cur_diskstats }) {
         $results{$device} = calculate_values($prev_time, $prev_diskstats{$device}, $cur_diskstats{$device});
     }
+
+    print_values_root(\%results);
 
     for my $device (keys %results) {
         print_values_device($device, $results{$device});
@@ -198,6 +198,9 @@ sub calculate_values {
 
     my $util_print = $utilization / 10;
 
+    # Does the device provide latency information?
+    my $does_latency = $cur_stats->{'rd_ticks'} + $cur_stats->{'wr_ticks'} ? 1 : 0;
+
     return { utilization => $util_print,
         servicetime => $servicetime,
         average_wait => $average_wait,
@@ -210,8 +213,38 @@ sub calculate_values {
         average_rq_size_in_kb => $average_rq_size_in_kb,
         average_rd_rq_size_in_kb => $average_rd_rq_size_in_kb,
         average_wr_rq_size_in_kb => $average_wr_rq_size_in_kb,
-        does_latency => $rd_ticks + $wr_ticks ? 1 : 0,
+        does_latency => $does_latency,
     };
+
+}
+
+sub print_values_root {
+
+    my ($result) = @_;
+
+    print "multigraph ${plugin_name}_latency\n";
+
+    for my $device (keys %{ $result }) {
+
+        next unless ($result->{$device}->{'does_latency'});
+
+        print "${device}_util.value " . $result->{$device}->{'utilization'} . "\n";
+        print "${device}_avgwait.value " . $result->{$device}->{'average_wait'} . "\n";
+    }
+
+    print "\nmultigraph ${plugin_name}_throughput\n";
+
+    for my $device (keys %{ $result }) {
+        print "${device}_rdbytes.value " . $result->{$device}->{'read_bytes_per_sec'} . "\n";
+        print "${device}_wrbytes.value " . $result->{$device}->{'write_bytes_per_sec'} . "\n";
+    }
+
+    print "\nmultigraph ${plugin_name}_iops\n";
+
+    for my $device (keys %{ $result }) {
+        print "${device}_rdio.value " . $result->{$device}->{'read_io_per_sec'} . "\n";
+        print "${device}_wrio.value " . $result->{$device}->{'write_io_per_sec'} . "\n";
+    }
 
 }
 
@@ -228,7 +261,6 @@ svctm.value $result->{'servicetime'}
 avgwait.value $result->{'average_wait'}
 avgrdwait.value $result->{'average_rd_wait'}
 avgwrwait.value $result->{'average_wr_wait'}
-
 EOF
     }
 
@@ -237,7 +269,6 @@ EOF
 multigraph ${plugin_name}_throughput.$device
 rdbytes.value $result->{'read_bytes_per_sec'}
 wrbytes.value $result->{'write_bytes_per_sec'}
-
 EOF
 
     print <<EOF;
@@ -248,7 +279,6 @@ wrio.value $result->{'write_io_per_sec'}
 avgrqsz.value $result->{'average_rq_size_in_kb'}
 avgrdrqsz.value $result->{'average_rd_rq_size_in_kb'}
 avgwrrqsz.value $result->{'average_wr_rq_size_in_kb'}
-
 EOF
 
 }
