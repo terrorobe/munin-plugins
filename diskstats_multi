@@ -13,7 +13,6 @@ use Munin::Plugin;
 use MIME::Base64;
 use Storable qw(freeze thaw);
 
-
 # Hardcoded pollinterval of 300 seconds
 my $poll_interval = 300;
 
@@ -22,10 +21,10 @@ my $plugin_name = $Munin::Plugin::me;
 # Check for multigraph capabilities
 # FIXME: need_multigraph succeeds only when run from within munin.
 # This should be fixed upstream, write bugreport!
-need_multigraph() if ($ENV{'MUNIN_VERSION'});
+need_multigraph() if ( $ENV{'MUNIN_VERSION'} );
 
 # Handle munin 'autoconf' command
-do_autoconf() if ( $ARGV[0] && $ARGV[0] eq 'autoconf');
+do_autoconf() if ( $ARGV[0] && $ARGV[0] eq 'autoconf' );
 
 # FIXME: See Ticket #810
 set_state_name($plugin_name) unless defined $Munin::Plugin::statefile;
@@ -45,7 +44,6 @@ my ( $prev_time, %prev_diskstats ) = choose_old_state();
 # Persist state from current run
 add_new_state( time(), %cur_diskstats );
 
-
 # Probably the first run for the given device, we need state to do our job,
 # so let's wait for the next run.
 exit if ( not defined $prev_time or not %prev_diskstats );
@@ -61,7 +59,6 @@ exit 0;
 # file locking?
 # Filter for devices for node config?
 
-
 ########
 # SUBS #
 ########
@@ -76,36 +73,37 @@ sub generate_multigraph_data {
 
     my %results;
 
-    for my $device (keys %{ $cur_diskstats }) {
-        $results{$device} = calculate_values($prev_time, $prev_diskstats{$device}, $cur_diskstats{$device});
+    for my $device ( keys %{$cur_diskstats} ) {
+        $results{$device} =
+          calculate_values( $prev_time, $prev_diskstats{$device},
+            $cur_diskstats{$device} );
     }
 
-    print_values_root(\%results);
+    print_values_root( \%results );
 
-    for my $device (keys %results) {
-        print_values_device($device, $results{$device});
+    for my $device ( keys %results ) {
+        print_values_device( $device, $results{$device} );
     }
     return;
 }
 
-
 # choose_old_state
 #
 # Look through the list of old states and choose the one which is closest
-# to the poll interval 
+# to the poll interval
 
 sub choose_old_state {
 
     my (%states) = restore_state();
 
-    return unless (keys %states);
+    return unless ( keys %states );
 
     my $now = time();
 
     my $old_delta;
     my $return_timestamp;
 
-    for my $timestamp (sort keys %states) {
+    for my $timestamp ( sort keys %states ) {
 
         # Calculate deviation from ideal interval
         my $delta = abs( $now - $timestamp - $poll_interval );
@@ -114,12 +112,13 @@ sub choose_old_state {
         $old_delta = $delta + 1 unless defined $old_delta;
 
         # Bail out and use previous result if it was closer to the interval
-        last if ($delta > $old_delta);
+        last if ( $delta > $old_delta );
 
-        $old_delta = $delta;
+        $old_delta        = $delta;
         $return_timestamp = $timestamp;
     }
-    return $return_timestamp, %{ thaw decode_base64 $states{$return_timestamp} };
+    return $return_timestamp,
+      %{ thaw decode_base64 $states{$return_timestamp} };
 }
 
 # add_new_state
@@ -128,12 +127,12 @@ sub choose_old_state {
 # Discard any state that is noticeable older than the poll interval
 
 sub add_new_state {
-    my ($cur_time, %cur_diskstats) = @_;
+    my ( $cur_time, %cur_diskstats ) = @_;
 
     my (%states) = restore_state();
     my $now = time();
 
-    for my $timestamp (sort keys %states) {
+    for my $timestamp ( sort keys %states ) {
         last if ( ( $now - $timestamp ) <= $poll_interval * 1.5 );
         delete $states{$timestamp};
     }
@@ -182,42 +181,39 @@ sub calculate_values {
     my $utilization = $tot_ticks / $interval;
 
     # Average time an I/O takes on the block device
-    my $servicetime
-        = $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
+    my $servicetime =
+      $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
 
     # Average wait time for an I/O from start to finish
     # (includes queue times et al)
-    my $average_wait
-        = $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios : 0;
+    my $average_wait = $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios : 0;
     my $average_rd_wait = $read_ios  ? $rd_ticks / $read_ios  : 0;
     my $average_wr_wait = $write_ios ? $wr_ticks / $write_ios : 0;
 
-    my $average_rq_size_in_kb
-        = $total_ios
-        ? ( $rd_sectors + $wr_sectors ) 
-        * $bytes_per_sector / 1024
-        / $total_ios
-        : 0;
-    my $average_rd_rq_size_in_kb
-        = $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
-    my $average_wr_rq_size_in_kb
-        = $write_ios
-        ? $wr_sectors * $bytes_per_sector / 1024 / $write_ios
-        : 0;
+    my $average_rq_size_in_kb =
+      $total_ios
+      ? ( $rd_sectors + $wr_sectors ) * $bytes_per_sector / 1024 / $total_ios
+      : 0;
+    my $average_rd_rq_size_in_kb =
+      $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
+    my $average_wr_rq_size_in_kb =
+        $write_ios
+      ? $wr_sectors * $bytes_per_sector / 1024 / $write_ios
+      : 0;
 
     my $util_print = $utilization / 10;
 
-
-    return { utilization => $util_print,
-        servicetime => $servicetime,
-        average_wait => $average_wait,
-        average_rd_wait => $average_rd_wait,
-        average_wr_wait => $average_wr_wait,
-        read_bytes_per_sec => $read_bytes_per_sec,
-        write_bytes_per_sec => $write_bytes_per_sec,
-        read_io_per_sec => $read_io_per_sec,
-        write_io_per_sec => $write_io_per_sec,
-        average_rq_size_in_kb => $average_rq_size_in_kb,
+    return {
+        utilization              => $util_print,
+        servicetime              => $servicetime,
+        average_wait             => $average_wait,
+        average_rd_wait          => $average_rd_wait,
+        average_wr_wait          => $average_wr_wait,
+        read_bytes_per_sec       => $read_bytes_per_sec,
+        write_bytes_per_sec      => $write_bytes_per_sec,
+        read_io_per_sec          => $read_io_per_sec,
+        write_io_per_sec         => $write_io_per_sec,
+        average_rq_size_in_kb    => $average_rq_size_in_kb,
         average_rd_rq_size_in_kb => $average_rd_rq_size_in_kb,
         average_wr_rq_size_in_kb => $average_wr_rq_size_in_kb,
     };
@@ -234,26 +230,32 @@ sub print_values_root {
 
     print "multigraph ${plugin_name}_latency\n";
 
-    for my $device (keys %{ $result }) {
+    for my $device ( keys %{$result} ) {
 
-        next unless ($cur_diskstats{$device}->{'does_latency'});
+        next unless ( $cur_diskstats{$device}->{'does_latency'} );
 
-        print "${device}_util.value " . $result->{$device}->{'utilization'} . "\n";
-        print "${device}_avgwait.value " . $result->{$device}->{'average_wait'} . "\n";
+        print "${device}_util.value "
+          . $result->{$device}->{'utilization'} . "\n";
+        print "${device}_avgwait.value "
+          . $result->{$device}->{'average_wait'} . "\n";
     }
 
     print "\nmultigraph ${plugin_name}_throughput\n";
 
-    for my $device (keys %{ $result }) {
-        print "${device}_rdbytes.value " . $result->{$device}->{'read_bytes_per_sec'} . "\n";
-        print "${device}_wrbytes.value " . $result->{$device}->{'write_bytes_per_sec'} . "\n";
+    for my $device ( keys %{$result} ) {
+        print "${device}_rdbytes.value "
+          . $result->{$device}->{'read_bytes_per_sec'} . "\n";
+        print "${device}_wrbytes.value "
+          . $result->{$device}->{'write_bytes_per_sec'} . "\n";
     }
 
     print "\nmultigraph ${plugin_name}_iops\n";
 
-    for my $device (keys %{ $result }) {
-        print "${device}_rdio.value " . $result->{$device}->{'read_io_per_sec'} . "\n";
-        print "${device}_wrio.value " . $result->{$device}->{'write_io_per_sec'} . "\n";
+    for my $device ( keys %{$result} ) {
+        print "${device}_rdio.value "
+          . $result->{$device}->{'read_io_per_sec'} . "\n";
+        print "${device}_wrio.value "
+          . $result->{$device}->{'write_io_per_sec'} . "\n";
     }
     return;
 }
@@ -264,7 +266,7 @@ sub print_values_root {
 
 sub print_values_device {
 
-    my ($device, $result) = @_;
+    my ( $device, $result ) = @_;
 
     if ( $cur_diskstats{$device}->{'does_latency'} ) {
         print <<"EOF";
@@ -307,7 +309,7 @@ sub read_procfs {
     my $statfh;
 
     open $statfh, '<', '/proc/diskstats'
-        or croak "Failed to open '/proc/diskstats': $!\n";
+      or croak "Failed to open '/proc/diskstats': $!\n";
 
     my @lines;
 
@@ -343,7 +345,7 @@ sub read_sysfs {
     my @lines;
 
     @devices = glob "/sys/block/*/stat";
-    @devices = map {m!/sys/block/([^/]+)/stat!} @devices;
+    @devices = map { m!/sys/block/([^/]+)/stat! } @devices;
 
     for my $cur_device (@devices) {
         my $stats_file = "/sys/block/$cur_device/stat";
@@ -351,7 +353,7 @@ sub read_sysfs {
         my $statfh;
 
         open $statfh, '<', $stats_file
-            or croak "Failed to open '$stats_file': $!\n";
+          or croak "Failed to open '$stats_file': $!\n";
 
         my $line = <$statfh>;
 
@@ -364,7 +366,7 @@ sub read_sysfs {
         my @elems = split /\s+/, $line;
 
         croak "'$stats_file' doesn't contain exactly 11 values. Aborting"
-            if ( @elems != 11 );
+          if ( @elems != 11 );
 
         # Translate the devicename back before storing the information
         $cur_device =~ tr#!#/#;
@@ -404,11 +406,11 @@ sub parse_diskstats {
         # Hash-Slicing for fun and profit
         @devstat{
             qw(major minor devname
-                rd_ios rd_merges rd_sectors rd_ticks
-                wr_ios wr_merges wr_sectors wr_ticks
-                ios_in_prog tot_ticks rq_ticks)
-            }
-            = @{$entry};
+              rd_ios rd_merges rd_sectors rd_ticks
+              wr_ios wr_merges wr_sectors wr_ticks
+              ios_in_prog tot_ticks rq_ticks)
+          }
+          = @{$entry};
 
         # Resolve devicemapper names to their LVM counterparts
         my $pretty_device = $devstat{'devname'};
@@ -420,7 +422,8 @@ sub parse_diskstats {
         $devstat{'pretty_device_name'} = $pretty_device;
 
         # Does the device provide latency information?
-        $devstat{'does_latency'} = $devstat{'rd_ticks'} + $devstat{'wr_ticks'} ? 1 : 0;
+        $devstat{'does_latency'} =
+          $devstat{'rd_ticks'} + $devstat{'wr_ticks'} ? 1 : 0;
 
         $diskstats{ $devstat{'devname'} } = \%devstat;
     }
@@ -438,24 +441,25 @@ sub fetch_device_counters {
     my %diskstats = parse_diskstats();
 
     my @seen_devices;
-DEVICE:
+  DEVICE:
     for my $devname ( keys %diskstats ) {
 
         # Remove devices without traffic
-        if ( $diskstats{$devname}->{'rd_ios'} == 0
-                && $diskstats{$devname}->{'wr_ios'} == 0 ) {
+        if (   $diskstats{$devname}->{'rd_ios'} == 0
+            && $diskstats{$devname}->{'wr_ios'} == 0 )
+        {
             delete $diskstats{$devname};
             next DEVICE;
         }
 
-        for my $existing_device ( @seen_devices ) {
+        for my $existing_device (@seen_devices) {
 
-          # Filter out devices (partitions) which are matched by existing ones
-          # e.g. sda1 -> sda, c0d0p1 -> c0d0
-             if ( $devname =~ m/$existing_device/ ) {
-                 delete $diskstats{$devname};
-                 next DEVICE;
-             }
+            # Filter out devices (partitions) which are matched by existing ones
+            # e.g. sda1 -> sda, c0d0p1 -> c0d0
+            if ( $devname =~ m/$existing_device/ ) {
+                delete $diskstats{$devname};
+                next DEVICE;
+            }
         }
 
         push @seen_devices, $devname;
@@ -477,7 +481,7 @@ sub translate_devicemapper_name {
 
     my $dm_major = find_devicemapper_major();
     croak "Failed to get device-mapper major number\n"
-        unless defined $dm_major;
+      unless defined $dm_major;
 
     for my $entry ( glob "/dev/mapper/\*" ) {
 
@@ -489,7 +493,7 @@ sub translate_devicemapper_name {
 
             my $pretty_name = translate_lvm_name($entry);
 
-	    $entry =~ s|/dev/||;
+            $entry =~ s|/dev/||;
 
             return defined $pretty_name ? $pretty_name : $entry;
         }
@@ -542,11 +546,11 @@ sub find_devicemapper_major {
     my $devicefh;
 
     open( $devicefh, '<', '/proc/devices' )
-        or croak "Failed to open '/proc/devices': $!";
+      or croak "Failed to open '/proc/devices': $!";
 
     my $dm_major;
 
-    while (my $line = <$devicefh>) {
+    while ( my $line = <$devicefh> ) {
         chomp $line;
 
         my ( $major, $name ) = split /\s+/, $line, 2;
@@ -593,7 +597,7 @@ sub do_config {
 
 sub do_config_root {
 
-# Print config for latency
+    # Print config for latency
 
     print <<"EOF";
 multigraph ${plugin_name}_latency
@@ -603,7 +607,7 @@ graph_category disk
 
 EOF
 
-    for my $device (sort keys %cur_diskstats) {
+    for my $device ( sort keys %cur_diskstats ) {
         next unless $cur_diskstats{$device}->{'does_latency'};
 
         print <<"EOF";
@@ -618,9 +622,7 @@ ${device}_avgwait.min 0
 EOF
     }
 
-
-
-# Print config for throughput
+    # Print config for throughput
 
     print <<"EOF";
 
@@ -632,7 +634,7 @@ graph_category disk
 
 EOF
 
-    for my $device (sort keys %cur_diskstats) {
+    for my $device ( sort keys %cur_diskstats ) {
 
         print <<"EOF";
 ${device}_rdbytes.label $cur_diskstats{$device}->{'pretty_device_name'} Read Bytes
@@ -644,8 +646,7 @@ ${device}_wrbytes.min 0
 EOF
     }
 
-
-# Print config for iops
+    # Print config for iops
 
     print <<"EOF";
 
@@ -657,7 +658,7 @@ graph_category disk
 
 EOF
 
-    for my $device (sort keys %cur_diskstats) {
+    for my $device ( sort keys %cur_diskstats ) {
 
         print <<"EOF";
 ${device}_rdio.label $cur_diskstats{$device}->{'pretty_device_name'} Read IO/sec
@@ -672,14 +673,13 @@ EOF
     return;
 }
 
-
 # do_config_device
 #
 # Print the configuration for all device graphs
 
 sub do_config_device {
 
-    for my $device (sort keys %cur_diskstats) {
+    for my $device ( sort keys %cur_diskstats ) {
 
         # Nice name for graph
         my $pretty_device = $cur_diskstats{$device}->{'pretty_device_name'};
@@ -758,11 +758,9 @@ avgwrrqsz.min 0
 
 EOF
 
-
     }
     return;
 }
-
 
 __END__
 
