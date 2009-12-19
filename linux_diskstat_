@@ -25,10 +25,10 @@ if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
 }
 
 # Fetch current counter values
-my %cur_diskstat = fetch_device_counters();
+my %cur_diskstats = fetch_device_counters();
 
 # Restore data from previous run
-my ( $prev_time, %prev_diskstat ) = restore_state();
+my ( $prev_time, %prev_diskstats ) = restore_state();
 
 # Persist state from current run
 save_state( time(), %cur_diskstat );
@@ -47,6 +47,7 @@ exit 0;
 # generate overview stats for iops, througput & latency
 # generate detailed stats for iops, througput & latency for every device
 #   skip devices which are missing from old state but save the data in the new state
+#   only do latency when the device has ticks?
 
 
 ########
@@ -202,21 +203,11 @@ sub read_diskstats {
 
 sub read_sysfs {
 
-    my ($want_device) = @_;
-
     my @devices;
     my @lines;
 
-    if ( defined $want_device ) {
-
-        # sysfs uses '!' as replacement for '/', e.g. cciss!c0d0
-        $want_device =~ tr#/#!#;
-        @devices = $want_device;
-    }
-    else {
-        @devices = glob "/sys/block/*/stat";
-        @devices = map {m!/sys/block/([^/]+)/stat!} @devices;
-    }
+    @devices = glob "/sys/block/*/stat";
+    @devices = map {m!/sys/block/([^/]+)/stat!} @devices;
 
     for my $cur_device (@devices) {
         my $stats_file = "/sys/block/$cur_device/stat";
@@ -253,13 +244,11 @@ sub read_sysfs {
 
 sub parse_diskstats {
 
-    my ($want_device) = @_;
-
     my @stats;
 
     if ( glob "/sys/block/*/stat" ) {
 
-        @stats = read_sysfs($want_device);
+        @stats = read_sysfs();
     }
     else {
         @stats = read_diskstats();
@@ -288,17 +277,31 @@ sub parse_diskstats {
 
 sub fetch_device_counters {
 
-    my ($want_device) = @_;
+    my %diskstats = parse_diskstats();
 
-    my %diskstats = parse_diskstats($want_device);
-
+DEVICE:
     for my $devname ( keys %diskstats ) {
 
-        if ( $want_device eq $devname ) {
-            return %{ $diskstats{$devname} };
+        # Remove devices without traffic
+        if ( $diskstats{$devname}->{'rd_ios'} == 0
+                && $diskstats{$devname}->{'wr_ios'} == 0 ) {
+            delete $diskstats{$devname}
+            next DEVICE;
         }
+
+        for my $existing_device ( @devices ) {
+
+          # Filter out devices (partitions) which are matched by existing ones
+          # e.g. sda1 -> sda, c0d0p1 -> c0d0
+             if ( $devname =~ m/$existing_device/ ) {
+                 delete $diskstats{$devname}
+                 next DEVICE;
+             }
+        }
+
+        push @devices, $devname;
     }
-    return;
+    return %diskstats;
 }
 
 
@@ -405,45 +408,6 @@ sub do_autoconf {
         print "no\n";
         exit 1;
     }
-}
-
-# find_devices
-#
-# Scans for usable devices and returns a hashref
-# $hash->{'mode'}->[devices]
-
-sub find_devices {
-
-    my %diskstats = parse_diskstats();
-
-    my %suggested_devices;
-
-DEVICE:
-    for my $devname ( sort keys %diskstats ) {
-
-        # Skip devices without traffic
-        next
-            if ( $diskstats{$devname}->{'rd_ios'} == 0
-            && $diskstats{$devname}->{'wr_ios'} == 0 );
-
-        for my $existing_device ( @{ $suggested_devices{'iops'} } ) {
-
-          # Filter out devices (partitions) which are matched by existing ones
-          # e.g. sda1 -> sda, c0d0p1 -> c0d0
-            next DEVICE if ( $devname =~ m/$existing_device/ );
-        }
-
-        push @{ $suggested_devices{'iops'} },       $devname;
-        push @{ $suggested_devices{'throughput'} }, $devname;
-
-        # Only suggest latency graphs if the device supports it
-        if (   $diskstats{$devname}->{'rd_ticks'} > 0
-            || $diskstats{$devname}->{'wr_ticks'} > 0 )
-        {
-            push @{ $suggested_devices{'latency'} }, $devname;
-        }
-    }
-    return \%suggested_devices;
 }
 
 sub do_config {
