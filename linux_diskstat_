@@ -15,7 +15,6 @@ need_multigraph();
 # Handle munin 'autoconf' & 'suggest' commands
 if ( defined $ARGV[0] ) {
     do_autoconf() if ($ARGV[0] eq 'autoconf');
-    do_suggest() if ($ARGV[0] eq 'suggest');
 }
 
 
@@ -43,12 +42,18 @@ calculate_and_print_values( $prev_time, \%prev_diskstat, \%cur_diskstat );
 
 exit 0;
 
+# find ideal old state
+# gather current data for all existing devices
+# generate overview stats for iops, througput & latency
+# generate detailed stats for iops, througput & latency for every device
+#   skip devices which are missing from old state but save the data in the new state
+
 
 ########
 # SUBS #
 ########
 
-sub calculate_and_print_values {
+sub calculate_values {
     my ( $prev_time, $prev_stats, $cur_stats ) = @_;
 
     my $bytes_per_sector = 512;
@@ -106,6 +111,24 @@ sub calculate_and_print_values {
 
     my $util_print = $utilization / 10;
 
+    return \{ utilization => $util_print,
+        servicetime => $servicetime,
+        average_wait => $average_wait,
+        average_rd_wait => $average_rd_wait,
+        average_wr_wait => $average_wr_wait,
+        read_bytes_per_sec => $read_bytes_per_sec,
+        write_bytes_per_sec => $write_bytes_per_sec,
+        read_io_per_sec => $read_io_per_sec,
+        write_io_per_sec => $write_io_per_sec,
+        average_rd_rq_size_in_kb => $average_rd_rq_size_in_kb,
+        average_wr_rq_size_in_kb => $average_wr_rq_size_in_kb,
+    };
+
+}
+
+=pod
+sub print_values {
+
     if ( $mode eq 'latency' ) {
         print <<EOF;
 
@@ -144,6 +167,7 @@ EOF
     }
 
 }
+=cut
 
 sub read_diskstats {
 
@@ -277,31 +301,6 @@ sub fetch_device_counters {
     return;
 }
 
-# We use ':' (and formerly '+' and '-') as placeholder for '/' in device-names
-# used as calling name for the script.
-sub translate_device_name {
-
-    my ( $device, $mode ) = @_;
-
-    if ( $mode eq 'FROM_FS' ) {
-
-        # Hackaround to mitigate issues with unwisely chosen former separator
-        if ( not( $device =~ m/dm-\d+/ ) ) {
-            $device =~ tr#-+:#///#;
-        }
-
-    }
-    elsif ( $mode eq 'TO_FS' ) {
-
-        $device =~ tr#/#:#;
-
-    }
-    else {
-        croak "translate_device_name: Unknown mode\n";
-    }
-
-    return $device;
-}
 
 sub translate_devicemapper_name {
     my ($device) = @_;
@@ -408,7 +407,12 @@ sub do_autoconf {
     }
 }
 
-sub do_suggest {
+# find_devices
+#
+# Scans for usable devices and returns a hashref
+# $hash->{'mode'}->[devices]
+
+sub find_devices {
 
     my %diskstats = parse_diskstats();
 
@@ -439,22 +443,14 @@ DEVICE:
             push @{ $suggested_devices{'latency'} }, $devname;
         }
     }
-
-    for my $mode ( keys %suggested_devices ) {
-        for my $device ( sort @{ $suggested_devices{$mode} } ) {
-
-            my $printdev = translate_device_name( $device, 'TO_FS' );
-            print "${mode}_$printdev\n";
-        }
-    }
-
-    exit 0;
+    return \%suggested_devices;
 }
 
 sub do_config {
 
     my ($device) = @_;
 
+    my $mode = 'dummy';
     # Nice name for graph
     my $pretty_device = $device;
 
@@ -653,7 +649,7 @@ writeup about the pdflush daemon.
 =head1 MAGIC MARKERS
 
   #%# family=manual
-  #%# capabilities=autoconf suggest
+  #%# capabilities=autoconf
 
 =head1 BUGS
 
