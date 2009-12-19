@@ -85,6 +85,7 @@ sub generate_multigraph_data {
     for my $device (keys %results) {
         print_values_device($device, $results{$device});
     }
+    return;
 }
 
 
@@ -97,7 +98,7 @@ sub choose_old_state {
 
     my (%states) = restore_state();
 
-    return undef unless (keys %states);
+    return unless (keys %states);
 
     my $now = time();
 
@@ -141,6 +142,7 @@ sub add_new_state {
     $states{$cur_time} = encode_base64 freeze \%cur_diskstats;
 
     save_state(%states);
+    return;
 }
 
 # calculate_values
@@ -253,7 +255,7 @@ sub print_values_root {
         print "${device}_rdio.value " . $result->{$device}->{'read_io_per_sec'} . "\n";
         print "${device}_wrio.value " . $result->{$device}->{'write_io_per_sec'} . "\n";
     }
-
+    return;
 }
 
 # print_values_device
@@ -265,7 +267,7 @@ sub print_values_device {
     my ($device, $result) = @_;
 
     if ( $cur_diskstats{$device}->{'does_latency'} ) {
-        print <<EOF;
+        print <<"EOF";
 
 multigraph ${plugin_name}_latency.$device
 util.value $result->{'utilization'}
@@ -276,14 +278,14 @@ avgwrwait.value $result->{'average_wr_wait'}
 EOF
     }
 
-    print <<EOF;
+    print <<"EOF";
 
 multigraph ${plugin_name}_throughput.$device
 rdbytes.value $result->{'read_bytes_per_sec'}
 wrbytes.value $result->{'write_bytes_per_sec'}
 EOF
 
-    print <<EOF;
+    print <<"EOF";
 
 multigraph ${plugin_name}_iops.$device
 rdio.value $result->{'read_io_per_sec'}
@@ -293,6 +295,7 @@ avgrdrqsz.value $result->{'average_rd_rq_size_in_kb'}
 avgwrrqsz.value $result->{'average_wr_rq_size_in_kb'}
 EOF
 
+    return;
 }
 
 # read_procfs
@@ -308,7 +311,7 @@ sub read_procfs {
 
     my @lines;
 
-    for my $line (<$statfh>) {
+    while ( my $line = <$statfh> ) {
 
         # Strip trailing newline and leading whitespace
         chomp $line;
@@ -352,6 +355,8 @@ sub read_sysfs {
 
         my $line = <$statfh>;
 
+        close $statfh or croak "Failed to close '$stats_file': $!\n";
+
         # Trimming whitespace
         $line =~ s/^\s+//;
         chomp $line;
@@ -368,8 +373,6 @@ sub read_sysfs {
         unshift @elems, ( '', '', $cur_device );
 
         push @lines, \@elems;
-
-        close $statfh or croak "Failed to close '$stats_file': $!\n";
     }
 
     return @lines;
@@ -543,7 +546,7 @@ sub find_devicemapper_major {
 
     my $dm_major;
 
-    for my $line (<$devicefh>) {
+    while (my $line = <$devicefh>) {
         chomp $line;
 
         my ( $major, $name ) = split /\s+/, $line, 2;
@@ -565,9 +568,7 @@ sub do_autoconf {
     my %stats;
 
     # Capture any croaks on the way
-    eval { %stats = parse_diskstats() };
-
-    if ( !$@ && keys %stats ) {
+    if ( eval { %stats = parse_diskstats() } && keys %stats ) {
 
         print "yes\n";
         exit 0;
@@ -594,7 +595,7 @@ sub do_config_root {
 
 # Print config for latency
 
-    print <<EOF;
+    print <<"EOF";
 multigraph ${plugin_name}_latency
 graph_title Disk latency overview
 graph_args --base 1000
@@ -605,7 +606,7 @@ EOF
     for my $device (sort keys %cur_diskstats) {
         next unless $cur_diskstats{$device}->{'does_latency'};
 
-        print <<EOF;
+        print <<"EOF";
 ${device}_util.label $cur_diskstats{$device}->{'pretty_device_name'} utilization (percent)
 ${device}_util.type GAUGE
 ${device}_util.info Utilization of the device
@@ -621,7 +622,7 @@ EOF
 
 # Print config for throughput
 
-    print <<EOF;
+    print <<"EOF";
 
 multigraph ${plugin_name}_throughput
 graph_title Disk throughput overview
@@ -633,7 +634,7 @@ EOF
 
     for my $device (sort keys %cur_diskstats) {
 
-        print <<EOF;
+        print <<"EOF";
 ${device}_rdbytes.label $cur_diskstats{$device}->{'pretty_device_name'} Read Bytes
 ${device}_rdbytes.type GAUGE
 ${device}_rdbytes.min 0
@@ -646,7 +647,7 @@ EOF
 
 # Print config for iops
 
-    print <<EOF;
+    print <<"EOF";
 
 multigraph ${plugin_name}_iops
 graph_title Disk IOs overview
@@ -658,7 +659,7 @@ EOF
 
     for my $device (sort keys %cur_diskstats) {
 
-        print <<EOF;
+        print <<"EOF";
 ${device}_rdio.label $cur_diskstats{$device}->{'pretty_device_name'} Read IO/sec
 ${device}_rdio.type GAUGE
 ${device}_rdio.min 0
@@ -668,6 +669,7 @@ ${device}_wrio.min 0
 EOF
     }
     print "\n";
+    return;
 }
 
 
@@ -684,7 +686,7 @@ sub do_config_device {
 
         if ( $cur_diskstats{$device}->{'does_latency'} ) {
 
-            print <<EOF;
+            print <<"EOF";
 multigraph ${plugin_name}_latency.$device
 graph_title Disk latency for /dev/$pretty_device
 graph_args --base 1000
@@ -715,7 +717,7 @@ EOF
 
         }
 
-        print <<EOF;
+        print <<"EOF";
 multigraph ${plugin_name}_throughput.$device
 graph_title Disk throughput for /dev/$pretty_device
 graph_args --base 1024
@@ -731,7 +733,7 @@ wrbytes.min 0
 
 EOF
 
-        print <<EOF;
+        print <<"EOF";
 multigraph ${plugin_name}_iops.$device
 graph_title Disk IOs for /dev/$pretty_device
 graph_args --base 1000
@@ -758,6 +760,7 @@ EOF
 
 
     }
+    return;
 }
 
 
