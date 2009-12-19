@@ -10,11 +10,9 @@ use File::Basename;
 use Carp;
 use POSIX;
 use Munin::Plugin;
-# AAAAAAAAAAAAARGH
 use MIME::Base64;
 use Storable qw(freeze thaw);
 
-use Data::Dumper;
 
 # Hardcoded pollinterval of 300 seconds
 my $poll_interval = 300;
@@ -67,6 +65,10 @@ exit 0;
 ########
 # SUBS #
 ########
+
+# generate_multigraph_data
+#
+# Creates the data which is needed by munin's fetch command
 
 sub generate_multigraph_data {
 
@@ -135,10 +137,15 @@ sub add_new_state {
         delete $states{$timestamp};
     }
 
+    # FIXME: There ought to be a better way to do this.
     $states{$cur_time} = encode_base64 freeze \%cur_diskstats;
 
     save_state(%states);
 }
+
+# calculate_values
+#
+# Calculates all data that get's graphed
 
 sub calculate_values {
     my ( $prev_time, $prev_stats, $cur_stats ) = @_;
@@ -215,6 +222,10 @@ sub calculate_values {
 
 }
 
+# print_values_root
+#
+# Return multigraph values for root graphs
+
 sub print_values_root {
 
     my ($result) = @_;
@@ -244,6 +255,10 @@ sub print_values_root {
     }
 
 }
+
+# print_values_device
+#
+# Return multigraph values for device graphs
 
 sub print_values_device {
 
@@ -280,7 +295,11 @@ EOF
 
 }
 
-sub read_diskstats {
+# read_procfs
+#
+# Pull diskstat information from procfs
+
+sub read_procfs {
 
     my $statfh;
 
@@ -310,6 +329,10 @@ sub read_diskstats {
     close $statfh or croak "Failed to close '/proc/diskstats': $!";
     return @lines;
 }
+
+# read_sysfs
+#
+# Pull diskstat information from sysfs
 
 sub read_sysfs {
 
@@ -352,6 +375,11 @@ sub read_sysfs {
     return @lines;
 }
 
+# parse_diskstats
+#
+# Pulls diskstat information eitehr from procfs or sysfs, parses them and provides
+# helper information.
+
 sub parse_diskstats {
 
     my @stats;
@@ -361,7 +389,7 @@ sub parse_diskstats {
         @stats = read_sysfs();
     }
     else {
-        @stats = read_diskstats();
+        @stats = read_procfs();
     }
 
     my %diskstats;
@@ -397,6 +425,11 @@ sub parse_diskstats {
     return %diskstats;
 }
 
+# fetch_device_counters
+#
+# Filters partitions and devices without IOs from diskstats
+# and returns them
+
 sub fetch_device_counters {
 
     my %diskstats = parse_diskstats();
@@ -427,6 +460,10 @@ DEVICE:
     return %diskstats;
 }
 
+# translate_devicemapper_name
+#
+# Tries to find a devicemapper name based on a minor number
+# Returns either a resolved LVM path or the original devicename
 
 sub translate_devicemapper_name {
     my ($device) = @_;
@@ -459,6 +496,11 @@ sub translate_devicemapper_name {
     return $device;
 }
 
+# translate_lvm_name
+#
+# Translates devicemapper names to their nicer LVM counterparts
+# e.g. /dev/mapper/VGfoo-LVbar -> /dev/VGfoo/LVbar
+
 sub translate_lvm_name {
 
     my ($entry) = @_;
@@ -487,6 +529,10 @@ sub translate_lvm_name {
     }
     return;
 }
+
+# find_devicemapper_major
+#
+# Searches for the major number of the devicemapper device
 
 sub find_devicemapper_major {
 
@@ -539,6 +585,10 @@ sub do_config {
 
     exit 0;
 }
+
+# do-config_root
+#
+# Print the configuration for the root graphs
 
 sub do_config_root {
 
@@ -619,6 +669,11 @@ EOF
     }
     print "\n";
 }
+
+
+# do_config_device
+#
+# Print the configuration for all device graphs
 
 sub do_config_device {
 
