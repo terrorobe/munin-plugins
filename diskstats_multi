@@ -813,7 +813,7 @@ writeup about the pdflush daemon.
 
 =head1 MAGIC MARKERS
 
-  #%# family=manual
+  #%# family=auto
   #%# capabilities=autoconf
 
 =head1 AUTHOR
