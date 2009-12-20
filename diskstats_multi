@@ -623,10 +623,11 @@ sub do_config_root {
 
     print <<"EOF";
 multigraph ${plugin_name}_latency
-graph_title Disk latency overview
+graph_title Disk latency per device
 graph_args --base 1000
 graph_vlabel Average IO Wait (ms)
 graph_category disk
+graph_width 450
 
 EOF
 
@@ -649,10 +650,11 @@ EOF
     print <<"EOF";
 
 multigraph ${plugin_name}_utilization
-graph_title Disk utilization overview
+graph_title Disk utilization per device
 graph_args --base 1000 --lower-limit 0 --upper-limit 100 --rigid
 graph_vlabel Percent
 graph_category disk
+graph_width 450
 
 EOF
 
@@ -675,9 +677,9 @@ EOF
     print <<"EOF";
 
 multigraph ${plugin_name}_throughput
-graph_title Disk throughput overview
+graph_title Disk throughput per device
 graph_args --base 1024
-graph_vlabel Bytes/\${graph_period} read (-) / written (+)
+graph_vlabel Bytes/\${graph_period} read (-) / write (+)
 graph_category disk
 graph_width 450
 
@@ -705,9 +707,9 @@ EOF
     print <<"EOF";
 
 multigraph ${plugin_name}_iops
-graph_title Disk IOs overview
+graph_title Disk IOs per device
 graph_args --base 1000
-graph_vlabel IOs/\${graph_period} read (-) / written (+) 
+graph_vlabel IOs/\${graph_period} read (-) / write (+) 
 graph_category disk
 graph_width 450
 
