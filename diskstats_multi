@@ -32,6 +32,9 @@ set_state_name($plugin_name) unless defined $Munin::Plugin::statefile;
 # Fetch current counter values
 my %cur_diskstats = fetch_device_counters();
 
+# Weed out unwanted devices
+filter_device_list(\%cur_diskstats);
+
 # Handle munin 'config' command
 # This can only be done after getting the device data
 if ( defined $ARGV[0] && $ARGV[0] eq 'config' ) {
@@ -871,6 +874,36 @@ sub sort_by_dm_last {
 }
 
 
+# filter_device_list
+#
+# Filter unwanted devices from given hash
+
+sub filter_device_list {
+
+    my ($devices) = @_;
+
+    my $include = $ENV{'include_only'};
+    my $exclude = $ENV{'exclude'};
+
+    croak "include_only and exclude are mutually exclusive. Please specify only one" if ($include && $exclude);
+    return unless ($include || $exclude);
+
+    my $mode = $include ? 0 : 1; 
+
+    # Pull data from environment variable
+    my @filter_list = map { my $dev = $_; $dev =~ s!^/dev/!!; $dev; } split /\s*,\s*/, $include ? $include : $exclude;
+
+    for my $device (keys %{ $devices }) {
+
+        # Check if one of the user-provided names matches the current device-name or "pretty" LVM name
+        my $match = map{ $device =~ m!\Q$_\E! || $devices->{$device}->{'pretty_device_name'} =~ m!\Q$_\E!;  } @filter_list;
+
+        # Delete the device when it matches and mode is exclude or when it doesn't match and mode is include(_only)
+        delete $devices->{$device} unless ( $match xor $mode );
+    }
+    return;
+}
+
 
 __END__
 
@@ -888,12 +921,31 @@ Linux 2.6 systems with extended block device statistics enabled.
 
 None needed.
 
+=head2 device-mapper names
+
 This plugin displays nicer device-mapper device names if it is run as
 root, but it functions as needed without root privilege.  To configure
 for running as root enter this in a plugin configuration file:
 
   [diskstats_multi]
     user root
+
+=head2 Monitor specific devices
+
+You can specify which devices should get monitored by the plugin via environment
+variables. The variables are mutually exclusive and should contain a comma-separated
+list of device names. Partial names (e.g. 'sd' or 'dm-') are okay.
+
+  [diskstats_multi]
+    env.include_only sda,sdb,cciss/c0d0
+
+or
+
+  [diskstats_multi]
+    env.exclude sdc,VGroot/LVswap
+
+LVM volumes can be filtered either by their canonical names or their internal
+device-mapper based names (e.g. 'dm-3', see dmsetup(8) for further information).
 
 =head1 INTERPRETATION
 
