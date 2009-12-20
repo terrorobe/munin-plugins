@@ -20,7 +20,7 @@ my $plugin_name = $Munin::Plugin::me;
 
 # Check for multigraph capabilities
 # FIXME: need_multigraph succeeds only when run from within munin.
-# This should be fixed upstream, write bugreport!
+# See Ticket #812
 need_multigraph() if ( $ENV{'MUNIN_VERSION'} );
 
 # Handle munin 'autoconf' command
@@ -625,7 +625,7 @@ sub do_config_root {
 multigraph ${plugin_name}_latency
 graph_title Disk latency overview
 graph_args --base 1000
-graph_vlabel milliseconds
+graph_vlabel Average IO Wait (ms)
 graph_category disk
 
 EOF
@@ -635,7 +635,7 @@ EOF
         my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
 
         print <<"EOF";
-${clean_device}_avgwait.label $cur_diskstats{$device}->{'pretty_device_name'} average IO Wait
+${clean_device}_avgwait.label $cur_diskstats{$device}->{'pretty_device_name'}
 ${clean_device}_avgwait.type GAUGE
 ${clean_device}_avgwait.info Average wait time for an I/O request
 ${clean_device}_avgwait.min 0
@@ -660,7 +660,7 @@ EOF
         my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
 
     print <<"EOF";
-${clean_device}_util.label $cur_diskstats{$device}->{'pretty_device_name'} utilization (percent)
+${clean_device}_util.label $cur_diskstats{$device}->{'pretty_device_name'}
 ${clean_device}_util.type GAUGE
 ${clean_device}_util.info Utilization of the device
 ${clean_device}_util.min 0
