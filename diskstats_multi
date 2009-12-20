@@ -619,6 +619,8 @@ sub do_config {
 
 sub do_config_root {
 
+    my @sorted_devices = sort_by_dm_last (keys %cur_diskstats);
+
     # Print config for latency
 
     print <<"EOF";
@@ -631,7 +633,7 @@ graph_width 450
 
 EOF
 
-    for my $device ( sort keys %cur_diskstats ) {
+    for my $device ( @sorted_devices ) {
         next unless $cur_diskstats{$device}->{'does_latency'};
         my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
 
@@ -658,7 +660,7 @@ graph_width 450
 
 EOF
 
-    for my $device ( sort keys %cur_diskstats ) {
+    for my $device ( @sorted_devices ) {
         next unless $cur_diskstats{$device}->{'does_latency'};
         my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
 
@@ -685,7 +687,7 @@ graph_width 450
 
 EOF
 
-    for my $device ( sort keys %cur_diskstats ) {
+    for my $device ( @sorted_devices ) {
         my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
 
         print <<"EOF";
@@ -715,7 +717,7 @@ graph_width 450
 
 EOF
 
-    for my $device ( sort keys %cur_diskstats ) {
+    for my $device ( @sorted_devices ) {
         my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
 
         print <<"EOF";
@@ -846,6 +848,31 @@ EOF
     }
     return;
 }
+
+
+# sort_by_dm_last
+#
+# Sort a given list, move devicemapper devices (dm-xx) to the end of the list
+
+sub sort_by_dm_last {
+
+    my @devices = @_;
+    my $re = qr/^dm-\d+/;
+    my (@dm, @non_dm);
+
+    for my $device (@devices)  {
+        if ($device =~ m/$re/) {
+            push @dm, $device;
+        }
+        else {
+            push @non_dm, $device;
+        }
+    }
+
+    return (sort @non_dm), (sort @dm);
+}
+
+
 
 __END__
 
