@@ -639,6 +639,7 @@ ${clean_device}_avgwait.label $cur_diskstats{$device}->{'pretty_device_name'}
 ${clean_device}_avgwait.type GAUGE
 ${clean_device}_avgwait.info Average wait time for an I/O request
 ${clean_device}_avgwait.min 0
+${clean_device}_avgwait.draw LINE1
 EOF
     }
 
@@ -664,6 +665,7 @@ ${clean_device}_util.label $cur_diskstats{$device}->{'pretty_device_name'}
 ${clean_device}_util.type GAUGE
 ${clean_device}_util.info Utilization of the device
 ${clean_device}_util.min 0
+${clean_device}_util.draw LINE1
 EOF
     }
 
@@ -688,10 +690,12 @@ EOF
 ${clean_device}_rdbytes.label $cur_diskstats{$device}->{'short_pretty_device_name'}
 ${clean_device}_rdbytes.type GAUGE
 ${clean_device}_rdbytes.min 0
+${clean_device}_rdbytes.draw LINE1
 ${clean_device}_rdbytes.graph no
 ${clean_device}_wrbytes.label $cur_diskstats{$device}->{'short_pretty_device_name'}
 ${clean_device}_wrbytes.type GAUGE
 ${clean_device}_wrbytes.min 0
+${clean_device}_wrbytes.draw LINE1
 ${clean_device}_wrbytes.negative ${clean_device}_rdbytes
 EOF
     }
@@ -716,10 +720,12 @@ EOF
 ${clean_device}_rdio.label $cur_diskstats{$device}->{'short_pretty_device_name'}
 ${clean_device}_rdio.type GAUGE
 ${clean_device}_rdio.min 0
+${clean_device}_rdio.draw LINE1
 ${clean_device}_rdio.graph no
 ${clean_device}_wrio.label $cur_diskstats{$device}->{'short_pretty_device_name'}
 ${clean_device}_wrio.type GAUGE
 ${clean_device}_wrio.min 0
+${clean_device}_wrio.draw LINE1
 ${clean_device}_wrio.negative ${clean_device}_rdio
 EOF
     }
@@ -751,18 +757,22 @@ svctm.label Average device IO time
 svctm.type GAUGE
 svctm.info Average time an I/O takes on the block device
 svctm.min 0
+svctm.draw LINE1
 avgwait.label Average IO Wait time
 avgwait.type GAUGE
 avgwait.info Average wait time for an I/O from request start to finish (includes queue times et al)
 avgwait.min 0
+avgwait.draw LINE1
 avgrdwait.label Average Read IO Wait time
 avgrdwait.type GAUGE
 avgrdwait.info Average wait time for a read I/O from request start to finish (includes queue times et al)
 avgrdwait.min 0
+avgrdwait.draw LINE1
 avgwrwait.label Average Write IO Wait time
 avgwrwait.type GAUGE
 avgwrwait.info Average wait time for a write I/O from request start to finish (includes queue times et al)
 avgwrwait.min 0
+avgwrwait.draw LINE1
 
 EOF
 
@@ -777,6 +787,7 @@ util.label Device utilization
 util.type GAUGE
 util.info Utilization of the device. If the time spent for I/O is close to 1000msec for a given second, the device is nearly 100% saturated.
 util.min 0
+util.draw LINE1
 
 EOF
 
@@ -792,9 +803,11 @@ graph_category disk
 rdbytes.label Read Bytes
 rdbytes.type GAUGE
 rdbytes.min 0
+rdbytes.draw LINE1
 wrbytes.label Write Bytes
 wrbytes.type GAUGE
 wrbytes.min 0
+wrbytes.draw LINE1
 
 EOF
 
@@ -808,18 +821,23 @@ graph_category disk
 rdio.label Read IO/sec
 rdio.type GAUGE
 rdio.min 0
+rdio.draw LINE1
 wrio.label Write IO/sec
 wrio.type GAUGE
 wrio.min 0
+wrio.draw LINE1
 avgrqsz.label Average Request Size (KiB)
 avgrqsz.type GAUGE
 avgrqsz.min 0
+avgrqsz.draw LINE1
 avgrdrqsz.label Average Read Request Size (KiB)
 avgrdrqsz.type GAUGE
 avgrdrqsz.min 0
+avgrdrqsz.draw LINE1
 avgwrrqsz.label Average Write Request Size (KiB)
 avgwrrqsz.type GAUGE
 avgwrrqsz.min 0
+avgwrrqsz.draw LINE1
 
 EOF
 
