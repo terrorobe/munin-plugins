@@ -189,10 +189,6 @@ sub calculate_values {
     my $average_rd_wait = $read_ios  ? $rd_ticks / $read_ios  : 0;
     my $average_wr_wait = $write_ios ? $wr_ticks / $write_ios : 0;
 
-    my $average_rq_size_in_kb =
-      $total_ios
-      ? ( $rd_sectors + $wr_sectors ) * $bytes_per_sector / 1024 / $total_ios
-      : 0;
     my $average_rd_rq_size_in_kb =
       $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
     my $average_wr_rq_size_in_kb =
@@ -212,7 +208,6 @@ sub calculate_values {
         write_bytes_per_sec      => $write_bytes_per_sec,
         read_io_per_sec          => $read_io_per_sec,
         write_io_per_sec         => $write_io_per_sec,
-        average_rq_size_in_kb    => $average_rq_size_in_kb,
         average_rd_rq_size_in_kb => $average_rd_rq_size_in_kb,
         average_wr_rq_size_in_kb => $average_wr_rq_size_in_kb,
     };
@@ -312,7 +307,6 @@ wrio.value $result->{'write_io_per_sec'}
 avgrdrqsz.value $result->{'average_rd_rq_size_in_kb'}
 avgwrrqsz.value $result->{'average_wr_rq_size_in_kb'}
 EOF
-# avgrqsz.value $result->{'average_rq_size_in_kb'}
 
     return;
 }
@@ -817,11 +811,7 @@ wrbytes.negative rdbytes
 
 EOF
 
-#avgrqsz.label Average Request Size (KiB)
-#avgrqsz.type GAUGE
-#avgrqsz.min 0
-#avgrqsz.draw LINE1
-#avgrqsz.graph no
+
         print <<"EOF";
 multigraph ${plugin_name}_iops.$device
 graph_title Disk IOs for /dev/$pretty_device
