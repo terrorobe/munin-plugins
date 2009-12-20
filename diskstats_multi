@@ -56,10 +56,6 @@ generate_multigraph_data( $prev_time, \%prev_diskstats, \%cur_diskstats );
 
 exit 0;
 
-# FIXME:
-# totals for overview graphs?
-# Filter for devices for node config?
-# report bugs.
 
 ########
 # SUBS #
