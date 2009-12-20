@@ -309,10 +309,10 @@ EOF
 multigraph ${plugin_name}_iops.$device
 rdio.value $result->{'read_io_per_sec'}
 wrio.value $result->{'write_io_per_sec'}
-avgrqsz.value $result->{'average_rq_size_in_kb'}
 avgrdrqsz.value $result->{'average_rd_rq_size_in_kb'}
 avgwrrqsz.value $result->{'average_wr_rq_size_in_kb'}
 EOF
+# avgrqsz.value $result->{'average_rq_size_in_kb'}
 
     return;
 }
@@ -801,47 +801,55 @@ EOF
 multigraph ${plugin_name}_throughput.$device
 graph_title Disk throughput for /dev/$pretty_device
 graph_args --base 1024
-graph_vlabel Bytes/second
+graph_vlabel Bytes/\${graph_period} read (-) / write (+)
 graph_category disk
 
 rdbytes.label Read Bytes
 rdbytes.type GAUGE
 rdbytes.min 0
 rdbytes.draw LINE1
+rdbytes.graph no
 wrbytes.label Write Bytes
 wrbytes.type GAUGE
 wrbytes.min 0
 wrbytes.draw LINE1
+wrbytes.negative rdbytes
 
 EOF
 
+#avgrqsz.label Average Request Size (KiB)
+#avgrqsz.type GAUGE
+#avgrqsz.min 0
+#avgrqsz.draw LINE1
+#avgrqsz.graph no
         print <<"EOF";
 multigraph ${plugin_name}_iops.$device
 graph_title Disk IOs for /dev/$pretty_device
 graph_args --base 1000
-graph_vlabel Units/second
+graph_vlabel Units read (-) / write (+)
 graph_category disk
 
-rdio.label Read IO/sec
+rdio.label dummy
 rdio.type GAUGE
 rdio.min 0
 rdio.draw LINE1
-wrio.label Write IO/sec
+rdio.graph no
+wrio.label IO/sec
 wrio.type GAUGE
 wrio.min 0
 wrio.draw LINE1
-avgrqsz.label Average Request Size (KiB)
-avgrqsz.type GAUGE
-avgrqsz.min 0
-avgrqsz.draw LINE1
-avgrdrqsz.label Average Read Request Size (KiB)
+wrio.negative rdio
+avgrdrqsz.label dummy
 avgrdrqsz.type GAUGE
 avgrdrqsz.min 0
 avgrdrqsz.draw LINE1
-avgwrrqsz.label Average Write Request Size (KiB)
+avgrdrqsz.graph no
+avgwrrqsz.label Avg Req Size (KiB)
+avgwrrqsz.info Average Request Size in Kibibyte
 avgwrrqsz.type GAUGE
 avgwrrqsz.min 0
 avgwrrqsz.draw LINE1
+avgwrrqsz.negative avgrdrqsz
 
 EOF
 
