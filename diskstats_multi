@@ -56,6 +56,7 @@ exit 0;
 # FIXME:
 # totals for overview graphs?
 # Filter for devices for node config?
+# report bugs.
 
 ########
 # SUBS #
@@ -233,10 +234,19 @@ sub print_values_root {
         next unless ( $cur_diskstats{$device}->{'does_latency'} );
         my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
 
-        print "${clean_device}_util.value "
-          . $result->{$device}->{'utilization'} . "\n";
         print "${clean_device}_avgwait.value "
           . $result->{$device}->{'average_wait'} . "\n";
+    }
+
+    print "\nmultigraph ${plugin_name}_utilization\n";
+
+    for my $device ( keys %{$result} ) {
+
+        next unless ( $cur_diskstats{$device}->{'does_latency'} );
+        my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
+
+        print "${clean_device}_util.value "
+          . $result->{$device}->{'utilization'} . "\n";
     }
 
     print "\nmultigraph ${plugin_name}_throughput\n";
@@ -273,12 +283,18 @@ sub print_values_device {
         print <<"EOF";
 
 multigraph ${plugin_name}_latency.$device
-util.value $result->{'utilization'}
 svctm.value $result->{'servicetime'}
 avgwait.value $result->{'average_wait'}
 avgrdwait.value $result->{'average_rd_wait'}
 avgwrwait.value $result->{'average_wr_wait'}
 EOF
+
+        print <<"EOF";
+
+multigraph ${plugin_name}_utilization.$device
+util.value $result->{'utilization'}
+EOF
+
     }
 
     print <<"EOF";
@@ -609,6 +625,7 @@ sub do_config_root {
 multigraph ${plugin_name}_latency
 graph_title Disk latency overview
 graph_args --base 1000
+graph_vlabel milliseconds
 graph_category disk
 
 EOF
@@ -618,16 +635,38 @@ EOF
         my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
 
         print <<"EOF";
-${clean_device}_util.label $cur_diskstats{$device}->{'pretty_device_name'} utilization (percent)
-${clean_device}_util.type GAUGE
-${clean_device}_util.info Utilization of the device
-${clean_device}_util.min 0
-${clean_device}_avgwait.label $cur_diskstats{$device}->{'pretty_device_name'} average IO Wait (ms)
+${clean_device}_avgwait.label $cur_diskstats{$device}->{'pretty_device_name'} average IO Wait
 ${clean_device}_avgwait.type GAUGE
 ${clean_device}_avgwait.info Average wait time for an I/O request
 ${clean_device}_avgwait.min 0
 EOF
     }
+
+    
+    # Print config for utilization
+
+    print <<"EOF";
+
+multigraph ${plugin_name}_utilization
+graph_title Disk utilization overview
+graph_args --base 1000 --lower-limit 0 --upper-limit 100 --rigid
+graph_vlabel Percent
+graph_category disk
+
+EOF
+
+    for my $device ( sort keys %cur_diskstats ) {
+        next unless $cur_diskstats{$device}->{'does_latency'};
+        my $clean_device = $cur_diskstats{$device}->{'clean_device_name'};
+
+    print <<"EOF";
+${clean_device}_util.label $cur_diskstats{$device}->{'pretty_device_name'} utilization (percent)
+${clean_device}_util.type GAUGE
+${clean_device}_util.info Utilization of the device
+${clean_device}_util.min 0
+EOF
+    }
+
 
     # Print config for throughput
 
@@ -638,6 +677,7 @@ graph_title Disk throughput overview
 graph_args --base 1024
 graph_vlabel Bytes/\${graph_period} read (-) / written (+)
 graph_category disk
+graph_width 450
 
 EOF
 
@@ -665,6 +705,7 @@ graph_title Disk IOs overview
 graph_args --base 1000
 graph_vlabel IOs/\${graph_period} read (-) / written (+) 
 graph_category disk
+graph_width 450
 
 EOF
 
@@ -703,28 +744,39 @@ sub do_config_device {
 multigraph ${plugin_name}_latency.$device
 graph_title Disk latency for /dev/$pretty_device
 graph_args --base 1000
+graph_vlabel milliseconds
 graph_category disk
 
-util.label Device utilization (percent)
-util.type GAUGE
-util.info Utilization of the device. If the time spent for I/O is close to 1000msec for a given second, the device is nearly 100% saturated.
-util.min 0
-svctm.label Average device IO time (ms)
+svctm.label Average device IO time
 svctm.type GAUGE
 svctm.info Average time an I/O takes on the block device
 svctm.min 0
-avgwait.label Average IO Wait time (ms)
+avgwait.label Average IO Wait time
 avgwait.type GAUGE
 avgwait.info Average wait time for an I/O from request start to finish (includes queue times et al)
 avgwait.min 0
-avgrdwait.label Average Read IO Wait time (ms)
+avgrdwait.label Average Read IO Wait time
 avgrdwait.type GAUGE
 avgrdwait.info Average wait time for a read I/O from request start to finish (includes queue times et al)
 avgrdwait.min 0
-avgwrwait.label Average Write IO Wait time (ms)
+avgwrwait.label Average Write IO Wait time
 avgwrwait.type GAUGE
 avgwrwait.info Average wait time for a write I/O from request start to finish (includes queue times et al)
 avgwrwait.min 0
+
+EOF
+
+            print <<"EOF";
+multigraph ${plugin_name}_utilization.$device
+graph_title Disk utilization for /dev/$pretty_device
+graph_args --base 1000 --lower-limit 0 --upper-limit 100 --rigid
+graph_vlabel Percent
+graph_category disk
+
+util.label Device utilization
+util.type GAUGE
+util.info Utilization of the device. If the time spent for I/O is close to 1000msec for a given second, the device is nearly 100% saturated.
+util.min 0
 
 EOF
 
