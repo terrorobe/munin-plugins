@@ -178,14 +178,14 @@ sub calculate_values {
     my $utilization = $tot_ticks / $interval;
 
     # Average time an I/O takes on the block device
-    my $servicetime =
-      $total_ios_per_sec ? $utilization / $total_ios_per_sec : 0;
+    my $servicetime_in_sec =
+      $total_ios_per_sec ? $utilization / $total_ios_per_sec / 1000 : 0;
 
     # Average wait time for an I/O from start to finish
     # (includes queue times et al)
-    my $average_wait = $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios : 0;
-    my $average_rd_wait = $read_ios  ? $rd_ticks / $read_ios  : 0;
-    my $average_wr_wait = $write_ios ? $wr_ticks / $write_ios : 0;
+    my $average_wait_in_sec = $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios / 1000 : 0;
+    my $average_rd_wait_in_sec = $read_ios  ? $rd_ticks / $read_ios  / 1000 : 0;
+    my $average_wr_wait_in_sec = $write_ios ? $wr_ticks / $write_ios / 1000 : 0;
 
     my $average_rd_rq_size_in_kb =
       $read_ios ? $rd_sectors * $bytes_per_sector / 1024 / $read_ios : 0;
@@ -198,10 +198,10 @@ sub calculate_values {
 
     return {
         utilization              => $util_print,
-        servicetime              => $servicetime,
-        average_wait             => $average_wait,
-        average_rd_wait          => $average_rd_wait,
-        average_wr_wait          => $average_wr_wait,
+        servicetime              => $servicetime_in_sec,
+        average_wait             => $average_wait_in_sec,
+        average_rd_wait          => $average_rd_wait_in_sec,
+        average_wr_wait          => $average_wr_wait_in_sec,
         read_bytes_per_sec       => $read_bytes_per_sec,
         write_bytes_per_sec      => $write_bytes_per_sec,
         read_io_per_sec          => $read_io_per_sec,
@@ -620,7 +620,7 @@ sub do_config_root {
 multigraph ${plugin_name}_latency
 graph_title Disk latency per device
 graph_args --base 1000
-graph_vlabel Average IO Wait (ms)
+graph_vlabel Average IO Wait (seconds)
 graph_category disk
 graph_width 450
 
@@ -745,7 +745,7 @@ sub do_config_device {
 multigraph ${plugin_name}_latency.$device
 graph_title Disk latency for /dev/$pretty_device
 graph_args --base 1000
-graph_vlabel milliseconds
+graph_vlabel seconds
 graph_category disk
 
 svctm.label Average device IO time
