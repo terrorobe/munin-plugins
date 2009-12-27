@@ -19,15 +19,10 @@ my $poll_interval = 300;
 my $plugin_name = $Munin::Plugin::me;
 
 # Check for multigraph capabilities
-# FIXME: need_multigraph succeeds only when run from within munin.
-# See Ticket #812
-need_multigraph() if ( $ENV{'MUNIN_VERSION'} );
+need_multigraph();
 
 # Handle munin 'autoconf' command
 do_autoconf() if ( $ARGV[0] && $ARGV[0] eq 'autoconf' );
-
-# FIXME: See Ticket #810
-set_state_name($plugin_name) unless defined $Munin::Plugin::statefile;
 
 # Fetch current counter values
 my %cur_diskstats = fetch_device_counters();
