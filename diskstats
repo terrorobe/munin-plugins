@@ -1,7 +1,9 @@
 #!/usr/bin/perl
-#!@@PERL@@ -w
+#!@@PERL@@
 # -*- perl -*-
 # vim: sts=4 sw=4 ts=8
+
+# Docs at the bottom
 
 use strict;
 use warnings;
@@ -908,7 +910,6 @@ via C</proc/diskstats> or C</sys/block/*/stat>
 
 Linux 2.6 systems with extended block device statistics enabled.
 
-
 =head1 CONFIGURATION
 
 None needed.
@@ -924,9 +925,10 @@ for running as root enter this in a plugin configuration file:
 
 =head2 Monitor specific devices
 
-You can specify which devices should get monitored by the plugin via environment
-variables. The variables are mutually exclusive and should contain a comma-separated
-list of device names. Partial names (e.g. 'sd' or 'dm-') are okay.
+You can specify which devices should get monitored by the plugin via
+environment variables. The variables are mutually exclusive and should
+contain a comma-separated list of device names. Partial names
+(e.g. 'sd' or 'dm-') are okay.
 
   [diskstats]
     env.include_only sda,sdb,cciss/c0d0
@@ -936,47 +938,52 @@ or
   [diskstats]
     env.exclude sdc,VGroot/LVswap
 
-LVM volumes can be filtered either by their canonical names or their internal
-device-mapper based names (e.g. 'dm-3', see dmsetup(8) for further information).
+LVM volumes can be filtered either by their canonical names or their
+internal device-mapper based names (e.g. 'dm-3', see dmsetup(8) for
+further information).
 
 =head1 INTERPRETATION
 
 Among the more self-describing or well-known values like C<throughput>
-(Bytes per second) there are a few which might need further introduction.
+(Bytes per second) there are a few which might need further
+introduction.
 
 
 =head2 Device Utilization
 
-Linux provides a counter which increments in a millisecond-interval for as long
-as there are outstanding I/O requests. If this counter is close to 1000msec
-in a given 1 second timeframe the device is nearly 100% saturated. This plugin
-provides values averaged over a 5 minute time frame per default, so it can't
-catch short-lived saturations, but it'll give a nice trend for semi-uniform
-load patterns as they're expected in most server or multi-user environments.
+Linux provides a counter which increments in a millisecond-interval
+for as long as there are outstanding I/O requests. If this counter is
+close to 1000msec in a given 1 second timeframe the device is nearly
+100% saturated. This plugin provides values averaged over a 5 minute
+time frame per default, so it can't catch short-lived saturations, but
+it'll give a nice trend for semi-uniform load patterns as they're
+expected in most server or multi-user environments.
 
 
 =head2 Device IO Time
 
-The C<Device IO Time> takes the counter described under C<Device Utilization>
-and divides it by the number of I/Os that happened in the given time frame,
-resulting in an average time per I/O on the block-device level.
+The C<Device IO Time> takes the counter described under C<Device
+Utilization> and divides it by the number of I/Os that happened in the
+given time frame, resulting in an average time per I/O on the
+block-device level.
 
-This value can give you a good comparison base amongst different controllers,
-storage subsystems and disks for similiar workloads.
+This value can give you a good comparison base amongst different
+controllers, storage subsystems and disks for similiar workloads.
 
 
 =head2 Syscall Wait Time
 
-These values describe the average time it takes between an application issuing
-a syscall resulting in a hit to a blockdevice to the syscall returning to the
-application.
+These values describe the average time it takes between an application
+issuing a syscall resulting in a hit to a blockdevice to the syscall
+returning to the application.
 
-The values are bound to be higher (at least for read requests) than the time
-it takes the device itself to fulfill the requests, since calling overhead,
-queuing times and probably a dozen other things are included in those times.
+The values are bound to be higher (at least for read requests) than
+the time it takes the device itself to fulfill the requests, since
+calling overhead, queuing times and probably a dozen other things are
+included in those times.
 
-These are the values to watch out for when an user complains that C<the disks
-are too slow!>.
+These are the values to watch out for when an user complains that
+C<the disks are too slow!>.
 
 
 =head3 What causes a block device hit?
