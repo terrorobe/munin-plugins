@@ -435,7 +435,7 @@ sub parse_diskstats {
         # for graph labels et al.
 
         ( $devstat{'short_pretty_device_name'} ) =
-          $pretty_device =~ m!/?([^/]+)$!;
+          $pretty_device =~ m#/?([^/]+)$#;
 
         # The graph identifier needs to be cleaned up because munin will
         # complain about strange characters in the name otherwise
@@ -464,9 +464,14 @@ sub fetch_device_counters {
 
     my %diskstats = parse_diskstats();
 
-    my @seen_devices;
+    my @valid_devices;
   DEVICE:
-    for my $devname ( keys %diskstats ) {
+
+# We need to see the devices before the partitions to make the partition filter work
+#   
+# Sorting by the length of the device name gives us this certainty
+
+    for my $devname (  sort { length($a) <=> length($b) } keys %diskstats ) {
 
         # Remove devices without traffic
         if (   $diskstats{$devname}->{'rd_ios'} == 0
@@ -476,18 +481,36 @@ sub fetch_device_counters {
             next DEVICE;
         }
 
-        for my $existing_device (@seen_devices) {
 
-            # Filter out devices (partitions) which are matched by existing ones
-            # e.g. sda1 -> sda, c0d0p1 -> c0d0
-            if ( $devname =~ m/$existing_device/ ) {
+# Filter out partitions, since we only want to track the data of the parent devices
+#
+# We skip:
+# - sda1 -> sda
+# - c0d0p1 -> c0d0
+# - md1p1 -> md1
+# - etherd/e1.1p1 -> etherd/e1.1
+# 
+# But we don't want to filter:
+# - dm-100 -> dm-1
+# - etherd/e1.10 -> etherd/e1.1
+#
+# To achieve this we skip a device if
+# - it looks like a device we use with a "p\d" suffix
+# - it looks like a device we use with a "\d" suffix, and the device didn't
+#   have a numeric suffix in the first place
+
+        for my $valid_device (@valid_devices) {
+
+            if ( $devname =~ m/^${valid_device}p\d+$/ ||
+                    ( $valid_device !~ /\d$/ && $devname =~ m/^$valid_device\d+$/ ) ) {
                 delete $diskstats{$devname};
                 next DEVICE;
             }
         }
 
-        push @seen_devices, $devname;
+        push @valid_devices, $devname;
     }
+
     return %diskstats;
 }
 
