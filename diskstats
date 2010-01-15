@@ -180,8 +180,9 @@ sub calculate_values {
 
     # Average wait time for an I/O from start to finish
     # (includes queue times et al)
-    my $average_wait_in_sec = $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios / 1000 : 0;
-    my $average_rd_wait_in_sec = $read_ios  ? $rd_ticks / $read_ios  / 1000 : 0;
+    my $average_wait_in_sec =
+      $total_ios ? ( $rd_ticks + $wr_ticks ) / $total_ios / 1000 : 0;
+    my $average_rd_wait_in_sec = $read_ios  ? $rd_ticks / $read_ios / 1000  : 0;
     my $average_wr_wait_in_sec = $write_ios ? $wr_ticks / $write_ios / 1000 : 0;
 
     my $average_rd_rq_size_in_kb =
@@ -468,10 +469,10 @@ sub fetch_device_counters {
   DEVICE:
 
 # We need to see the devices before the partitions to make the partition filter work
-#   
+#
 # Sorting by the length of the device name gives us this certainty
 
-    for my $devname (  sort { length($a) <=> length($b) } keys %diskstats ) {
+    for my $devname ( sort { length($a) <=> length($b) } keys %diskstats ) {
 
         # Remove devices without traffic
         if (   $diskstats{$devname}->{'rd_ios'} == 0
@@ -481,7 +482,6 @@ sub fetch_device_counters {
             next DEVICE;
         }
 
-
 # Filter out partitions, since we only want to track the data of the parent devices
 #
 # We skip:
@@ -489,7 +489,7 @@ sub fetch_device_counters {
 # - c0d0p1 -> c0d0
 # - md1p1 -> md1
 # - etherd/e1.1p1 -> etherd/e1.1
-# 
+#
 # But we don't want to filter:
 # - dm-100 -> dm-1
 # - etherd/e1.10 -> etherd/e1.1
@@ -501,8 +501,10 @@ sub fetch_device_counters {
 
         for my $valid_device (@valid_devices) {
 
-            if ( $devname =~ m/^${valid_device}p\d+$/ ||
-                    ( $valid_device !~ /\d$/ && $devname =~ m/^$valid_device\d+$/ ) ) {
+            if ( $devname =~ m/^${valid_device}p\d+$/
+                || (   $valid_device !~ /\d$/
+                    && $devname =~ m/^$valid_device\d+$/ ) )
+            {
                 delete $diskstats{$devname};
                 next DEVICE;
             }
@@ -770,7 +772,7 @@ sub do_config_device {
 
         # Nice name for graph
         my $pretty_device = $cur_diskstats{$device}->{'pretty_device_name'};
-        my $graph_id = $cur_diskstats{$device}->{'graph_id'};
+        my $graph_id      = $cur_diskstats{$device}->{'graph_id'};
 
         if ( $cur_diskstats{$device}->{'does_latency'} ) {
 
@@ -925,7 +927,7 @@ sub filter_device_list {
 
 # Check if one of the user-provided names matches the current device-name or "pretty" LVM name
         my $match = map {
-            $device =~ m!\Q$_\E!
+                 $device =~ m!\Q$_\E!
               || $devices->{$device}->{'pretty_device_name'} =~ m!\Q$_\E!;
         } @filter_list;
 
