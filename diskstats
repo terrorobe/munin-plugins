@@ -446,8 +446,10 @@ sub parse_diskstats {
 
         if ($trim_labels) {
 
-            $devstat{'pretty_device_name'} = trim_label('pos', $devstat{'pretty_device_name'});
-            $devstat{'short_pretty_device_name'} = trim_label('posneg', $devstat{'short_pretty_device_name'});
+            $devstat{'pretty_device_name'} =
+              trim_label( 'pos', $devstat{'pretty_device_name'} );
+            $devstat{'short_pretty_device_name'} =
+              trim_label( 'posneg', $devstat{'short_pretty_device_name'} );
         }
 
         # The graph identifier needs to be cleaned up because munin will
@@ -513,9 +515,11 @@ sub fetch_device_counters {
 
         for my $valid_device (@valid_devices) {
 
-            if ( $devname =~ m/^${valid_device}p\d+$/
+            if (
+                $devname =~ m/^${valid_device}p\d+$/
                 || (   $valid_device !~ /\d$/
-                    && $devname =~ m/^$valid_device\d+$/ ) )
+                    && $devname =~ m/^$valid_device\d+$/ )
+              )
             {
                 delete $diskstats{$devname};
                 next DEVICE;
@@ -666,13 +670,21 @@ sub do_config_root {
     # accomodate all labels
     unless ($trim_labels) {
 
-        my @short_labels =  map { $cur_diskstats{$_}->{'short_pretty_device_name'} } keys %cur_diskstats;
-        my @long_labels = map { $cur_diskstats{$_}->{'pretty_device_name'} } keys %cur_diskstats;
+        my @short_labels =
+          map { $cur_diskstats{$_}->{'short_pretty_device_name'} }
+          keys %cur_diskstats;
+        my @long_labels =
+          map { $cur_diskstats{$_}->{'pretty_device_name'} }
+          keys %cur_diskstats;
 
-        my $graph_width_short = find_required_graph_width('posneg', @short_labels);
-        my $graph_width_long = find_required_graph_width('pos', @long_labels);
+        my $graph_width_short =
+          find_required_graph_width( 'posneg', @short_labels );
+        my $graph_width_long = find_required_graph_width( 'pos', @long_labels );
 
-        $config_graph_width = $graph_width_short > $graph_width_long ? $graph_width_short : $graph_width_long;
+        $config_graph_width =
+            $graph_width_short > $graph_width_long
+          ? $graph_width_short
+          : $graph_width_long;
     }
 
     # Print config for latency
@@ -964,20 +976,18 @@ sub filter_device_list {
     return;
 }
 
-
 # calculate_pixels
 #
-# Calculates either 
+# Calculates either
 # the amount of available label-characters for $graph_width
 # or
 # the necessary $graph_width for a given label length
 #
 # type refers to the graph being positive only or positive/negative
 
-
 sub calculate_pixels {
 
-    my ($mode, $type, $data) = @_;
+    my ( $mode, $type, $data ) = @_;
 
     # These values are probably wrong, but a good approximation
     # $graph_width + $graph_border_width == real image width
@@ -985,16 +995,18 @@ sub calculate_pixels {
 
     # ($data_characters + $max_label_length + $padding_characters)
     # * $pixels_per_character == real image width
-    my $padding_characters = 10;
+    my $padding_characters   = 10;
     my $pixels_per_character = 6;
 
     my $data_characters;
 
-    if ($type eq 'posneg') {
+    if ( $type eq 'posneg' ) {
+
         # nnn.nnU/nnn.nnU_ times 4
         $data_characters = 64;
     }
-    elsif ($type eq 'pos') {
+    elsif ( $type eq 'pos' ) {
+
         # nnn.nnU_ times 4
         $data_characters = 32;
     }
@@ -1004,11 +1016,16 @@ sub calculate_pixels {
 
     my $return_data;
 
-    if ($mode eq 'required_width') {
-        $return_data = $pixels_per_character * ($padding_characters + $data_characters + $data) - $graph_border_width;
+    if ( $mode eq 'required_width' ) {
+        $return_data =
+          $pixels_per_character *
+          ( $padding_characters + $data_characters + $data ) -
+          $graph_border_width;
     }
-    elsif ($mode eq 'available_characters') {
-        $return_data = abs(( $graph_width + $graph_border_width ) / $pixels_per_character) - $padding_characters - $data_characters;
+    elsif ( $mode eq 'available_characters' ) {
+        $return_data =
+          abs( ( $graph_width + $graph_border_width ) / $pixels_per_character )
+          - $padding_characters - $data_characters;
 
     }
     else {
@@ -1023,41 +1040,42 @@ sub calculate_pixels {
 
 sub find_required_graph_width {
 
-    my ($type, @labels) = @_;
+    my ( $type, @labels ) = @_;
 
     my $longest_label_length = 0;
 
     for my $label (@labels) {
-        if (length $label > $longest_label_length ) {
+        if ( length $label > $longest_label_length ) {
             $longest_label_length = length $label;
         }
     }
 
-    my $required_graph_width = calculate_pixels('required_width', $type, $longest_label_length); 
-    return $graph_width if ($required_graph_width <= $graph_width);
+    my $required_graph_width =
+      calculate_pixels( 'required_width', $type, $longest_label_length );
+    return $graph_width if ( $required_graph_width <= $graph_width );
 
     # Return sufficient graph_width in 50 pixel increments
-    return $graph_width + ( ceil( ($required_graph_width - $graph_width) / 50 ) * 50 );
+    return $graph_width +
+      ( ceil( ( $required_graph_width - $graph_width ) / 50 ) * 50 );
 }
 
-
 # trim_label
-# 
+#
 # Trims a given label to it's non-wrapping size
 
 sub trim_label {
 
-    my ($type, $label) = @_;
+    my ( $type, $label ) = @_;
 
-    my $available_characters = calculate_pixels('available_characters', $type);
+    my $available_characters =
+      calculate_pixels( 'available_characters', $type );
 
-    if ($available_characters < length $label) {
-        $label = '...' . substr $label, ($available_characters - 3) * -1;
+    if ( $available_characters < length $label ) {
+        $label = '...' . substr $label, ( $available_characters - 3 ) * -1;
     }
 
-    return $label
+    return $label;
 }
-
 
 __END__
 
