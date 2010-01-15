@@ -1071,7 +1071,7 @@ sub trim_label {
       calculate_pixels( 'available_characters', $type );
 
     if ( $available_characters < length $label ) {
-        $label = '...' . substr $label, ( $available_characters - 3 ) * -1;
+        $label = '..' . substr $label, ( $available_characters - 2 ) * -1;
     }
 
     return $label;
